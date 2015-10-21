@@ -267,6 +267,7 @@ struct expr {
 			} else {
 				(*context)[x] = contextx;
 			}
+			return;
 		}
 		case 4: {
 			vector<shared_ptr<mono> > taus_1;
@@ -314,8 +315,8 @@ struct expr {
 					(*context)[contextx.first] = contextx.second;
 				}
 			}
-		}
 			return;
+		}
 		}
 	}
 
@@ -416,19 +417,6 @@ void test1() {
 //		pr->infer(context);
 //		cout<<"infered"<<endl;
 //		cout<<to_string(pr->type)<<endl;
-	{
-		auto v1 = newvar();
-		auto t = newvar();
-		auto tt = newvar();
-		tt->T = 1;
-		tt->D = "Map";
-		t->T = 1;
-		t->D = "C";
-		t->tau.push_back(tt);
-		t->tau.push_back(v1);
-		auto a = newvar();
-		a->T = 1;
-	}
 	let->e2 = e3;
 	let->infer(context);
 	cout << "Context:" << endl;
@@ -436,7 +424,8 @@ void test1() {
 		cout << kv.first << " :: " << to_string(kv.second) << endl;
 	}
 	cout << "Result:" << endl;
-	cout << let->to_string() << " :: " << to_string(let->type) << endl;
+	cout << let->to_string() << " :: " << to_string(gen(context, let->type))
+			<< endl;
 }
 
 void test2() {
@@ -454,10 +443,13 @@ void test2() {
 		cout << kv.first << " :: " << to_string(kv.second) << endl;
 	}
 	cout << "Result:" << endl;
-	cout << w->to_string() << " :: " << to_string(w->e->e1->type) << endl;
+	cout << w->to_string() << " :: " << to_string(gen(context, w->type))
+			<< endl;
 }
 
 int main() {
+	test1();
+	test2();
 	auto context = make_shared<map<string, shared_ptr<poly> > >();
 	auto w = make_shared<expr>();
 	w->T = 4;
