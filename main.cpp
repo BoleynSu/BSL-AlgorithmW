@@ -115,32 +115,28 @@ shared_ptr<mono> inst(shared_ptr<poly> sigma) {
 	return inst(sigma, m);
 }
 
-void free(set<shared_ptr<mono> >& f, set<shared_ptr<mono> >& nf,
-		shared_ptr<mono> tau) {
+void free(set<shared_ptr<mono> >& f, shared_ptr<mono> tau) {
 	tau = find(tau);
 	switch (tau->T) {
 	case 0:
-		if (!nf.count(tau)) {
-			f.insert(tau);
-		}
+		f.insert(tau);
 		return;
 	case 1:
 		for (int i = 0; i < tau->tau.size(); i++) {
-			free(f, nf, tau->tau[i]);
+			free(f, tau->tau[i]);
 		}
 		return;
 	}
 }
 
-void free(set<shared_ptr<mono> >& f, set<shared_ptr<mono> >& nf,
-		shared_ptr<poly> sigma) {
+void free(set<shared_ptr<mono> >& f, shared_ptr<poly> sigma) {
 	switch (sigma->T) {
 	case 0:
-		free(f, nf, sigma->tau);
+		free(f, sigma->tau);
 		return;
 	case 1:
-		nf.insert(find(sigma->alpha));
-		free(f, nf, sigma->sigma);
+		free(f, sigma->sigma);
+		f.erase(find(sigma->alpha));
 		return;
 	}
 }
@@ -150,13 +146,18 @@ shared_ptr<poly> gen(shared_ptr<map<string, shared_ptr<poly> > > context,
 	tau = find(tau);
 	set<shared_ptr<mono> > f;
 	for (auto c : *context) {
-		set<shared_ptr<mono> > nf;
-		free(f, nf, c.second);
+		set<shared_ptr<mono> > fi;
+		free(fi, c.second);
+		f.insert(fi.begin(), fi.end());
 	}
-	set<shared_ptr<mono> > ms;
-	free(ms, f, tau);
+	set<shared_ptr<mono> > fp;
+	free(fp, tau);
+	for (auto i : f) {
+		fp.erase(i);
+	}
+	fp.erase(f.begin(), f.end());
 	map<shared_ptr<mono>, shared_ptr<mono> > m;
-	for (auto f : ms) {
+	for (auto f : fp) {
 		m[f] = newvar();
 	}
 	auto g = make_shared<poly>(poly { 0, inst(tau, m) });
