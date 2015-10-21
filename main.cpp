@@ -103,7 +103,9 @@ shared_ptr<mono> inst(shared_ptr<poly> sigma,
 	case 0:
 		return inst(sigma->tau, m);
 	case 1:
-		m[find(sigma->alpha)] = newvar();
+		if (!m.count(find(sigma->alpha))) {
+			m[find(sigma->alpha)] = newvar();
+		}
 		return inst(sigma->sigma, m);
 	}
 }
@@ -347,6 +349,25 @@ struct expr {
 		}
 		}
 	}
+
+	string codegen() {
+		switch (T) {
+		case 0:
+			return x;
+		case 1:
+			return "(*((function<void*(void*)>*)(" + e1->codegen() + ")))("
+					+ e2->codegen() + ")";
+		case 2:
+			return "new function<void*(void*)>([=](void* " + x
+					+ ") -> void* { return " + e->codegen() + "; })";
+		case 3:
+			return "[=]() -> void* { void* " + x + " = " + e1->codegen()
+					+ "; return " + e2->codegen() + "; } ()";
+		case 4: {
+			return "NOT IMPLEMENTED";
+		}
+		}
+	}
 };
 
 void test1() {
@@ -426,6 +447,7 @@ void test1() {
 	cout << "Result:" << endl;
 	cout << let->to_string() << " :: " << to_string(gen(context, let->type))
 			<< endl;
+	cout << let->codegen() << endl;
 }
 
 void test2() {
@@ -473,4 +495,5 @@ int main() {
 	cout << "Result:" << endl;
 	cout << ww->to_string() << " :: " << to_string(gen(context, ww->type))
 			<< endl;
+	cout << ww->codegen() << endl;
 }
