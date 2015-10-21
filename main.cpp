@@ -215,6 +215,7 @@ struct expr {
 	string x;
 	shared_ptr<expr> e1, e2, e;
 	shared_ptr<mono> type;
+	vector<pair<string, shared_ptr<expr> > > es;
 
 	void infer(shared_ptr<map<string, shared_ptr<poly> > > context) {
 		switch (T) {
@@ -223,7 +224,7 @@ struct expr {
 				type = inst((*context)[x]);
 			} else {
 				cout << "ERROR!" << endl; //FIXME
-				cout << x << endl;
+				cout << x << " not in context" << endl;
 			}
 			return;
 		case 1: {
@@ -267,6 +268,53 @@ struct expr {
 				(*context)[x] = contextx;
 			}
 		}
+		case 4: {
+			vector<shared_ptr<mono> > taus_1;
+			map<string, shared_ptr<poly> > contextx_1;
+			for (int i = 0; i < es.size(); i++) {
+				if (context->count(es[i].first)) {
+					contextx_1[es[i].first] = (*context)[es[i].first];
+				} else {
+					contextx_1[es[i].first] = nullptr;
+				}
+				taus_1.push_back(newvar());
+				(*context)[es[i].first] = make_shared<poly>(
+						poly { 0, taus_1[i] });
+			}
+			for (int i = 0; i < es.size(); i++) {
+				es[i].second->infer(context);
+				unify(es[i].second->type, taus_1[i]);
+			}
+			for (auto contextx : contextx_1) {
+				if (contextx.second == nullptr) {
+					context->erase(contextx.first);
+				} else {
+					(*context)[contextx.first] = contextx.second;
+				}
+			}
+			vector<shared_ptr<poly> > taus_2;
+			map<string, shared_ptr<poly> > contextx_2;
+			for (int i = 0; i < es.size(); i++) {
+				taus_2.push_back(gen(context, es[i].second->type));
+			}
+			for (int i = 0; i < es.size(); i++) {
+				if (context->count(es[i].first)) {
+					contextx_2[es[i].first] = (*context)[es[i].first];
+				} else {
+					contextx_2[es[i].first] = nullptr;
+				}
+				(*context)[es[i].first] = taus_2[i];
+			}
+			e->infer(context);
+			type = e->type;
+			for (auto contextx : contextx_2) {
+				if (contextx.second == nullptr) {
+					context->erase(contextx.first);
+				} else {
+					(*context)[contextx.first] = contextx.second;
+				}
+			}
+		}
 			return;
 		}
 	}
@@ -282,6 +330,20 @@ struct expr {
 		case 3:
 			return "(let " + x + " = " + e1->to_string() + " in "
 					+ e2->to_string() + ")";
+		case 4: {
+			stringstream s;
+			s << "(rec";
+			for (int i = 0; i < es.size(); i++) {
+				if (i) {
+					s << " and ";
+				} else {
+					s << " ";
+				}
+				s << es[i].first << " = " << es[i].second->to_string();
+			}
+			s << " in " << e->to_string() << ")";
+			return s.str();
+		}
 		}
 	}
 };
@@ -377,7 +439,7 @@ void test1() {
 	cout << let->to_string() << " :: " << to_string(let->type) << endl;
 }
 
-int main() {
+void test2() {
 	auto context = make_shared<map<string, shared_ptr<poly> > >();
 	auto w = make_shared<expr>();
 	w->T = 2;
@@ -393,4 +455,30 @@ int main() {
 	}
 	cout << "Result:" << endl;
 	cout << w->to_string() << " :: " << to_string(w->e->e1->type) << endl;
+}
+
+int main() {
+	auto context = make_shared<map<string, shared_ptr<poly> > >();
+	auto w = make_shared<expr>();
+	w->T = 4;
+	auto f = make_shared<expr>();
+	f->T = 1;
+	f->e1 = make_shared<expr>(expr { 0, "f" });
+	f->e2 = make_shared<expr>(expr { 0, "x" });
+	w->es.push_back(make_pair("x", f));
+	w->e = make_shared<expr>();
+	w->e->T = 0;
+	w->e->x = "x";
+	auto ww = make_shared<expr>();
+	ww->T = 2;
+	ww->x = "f";
+	ww->e = w;
+	ww->infer(context);
+	cout << "Context:" << endl;
+	for (auto kv : *context) {
+		cout << kv.first << " :: " << to_string(kv.second) << endl;
+	}
+	cout << "Result:" << endl;
+	cout << ww->to_string() << " :: " << to_string(gen(context, ww->type))
+			<< endl;
 }
