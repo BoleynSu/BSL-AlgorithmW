@@ -327,6 +327,7 @@ struct Expr {
 			e->infer(context, cl);
 			type = newvar();
 			for (int i = 0; i < pes.size(); i++) {
+				//begin constructor check
 				if (!cl.count(pes[i].first[0])
 						|| cl[pes[i].first[0]] != pes[i].first.size() - 1) {
 					cout << "ERROR!" << endl; //FIXME
@@ -335,6 +336,17 @@ struct Expr {
 							<< endl;
 					return;
 				}
+				set<string> v;
+				for (int j = 1; j < pes[i].first.size(); j++) {
+					if (v.count(pes[i].first[j])) {
+						cout << "ERROR!" << endl; //FIXME
+						cout << pes[i].first[0] << " variable names conflict"
+								<< endl;
+						return;
+					}
+					v.insert(pes[i].first[j]);
+				}
+				//end constructor check
 				auto tau = inst((*context)[pes[i].first[0]]);
 				vector<shared_ptr<Mono> > taus_1;
 				vector<shared_ptr<Poly> > contextx_1;
@@ -458,7 +470,7 @@ struct Expr {
 			for (int i = 0; i < pes.size(); i++) {
 				s << "case " << ci[pes[i].first[0]] << ": {";
 				for (int j = 1; j < pes[i].first.size(); j++) {
-					s << "void* " << "$v_bsl_" << pes[i].first[j - 1]
+					s << "void* " << "$v_bsl_" << pes[i].first[j]
 							<< " = (($d_bsl_" << pes[i].first[0]
 							<< ")((($d_bsl_" << e->type->D
 							<< "*)($c_bsl_tmp))->ptr))->$v_bsl_" << j << ";";
