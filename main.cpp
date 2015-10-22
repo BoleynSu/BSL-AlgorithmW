@@ -1,29 +1,29 @@
 #include <iostream>
 #include <map>
 #include <memory>
+#include <set>
 #include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
-#include <set>
 
 using namespace std;
 
-struct mono {
+struct Mono {
 	int T;
-	shared_ptr<mono> alpha;
+	shared_ptr<Mono> alpha;
 	string D;
-	vector<shared_ptr<mono> > tau;
+	vector<shared_ptr<Mono> > tau;
 };
 
-struct poly {
+struct Poly {
 	int T;
-	shared_ptr<mono> tau;
-	shared_ptr<mono> alpha;
-	shared_ptr<poly> sigma;
+	shared_ptr<Mono> tau;
+	shared_ptr<Mono> alpha;
+	shared_ptr<Poly> sigma;
 };
 
-shared_ptr<mono> find(shared_ptr<mono> x) {
+shared_ptr<Mono> find(shared_ptr<Mono> x) {
 	switch (x->T) {
 	case 0:
 		if (x->alpha != nullptr) {
@@ -37,7 +37,7 @@ shared_ptr<mono> find(shared_ptr<mono> x) {
 	}
 }
 
-string to_string(shared_ptr<mono> tau) {
+string to_string(shared_ptr<Mono> tau) {
 	tau = find(tau);
 	switch (tau->T) {
 	case 0: {
@@ -59,7 +59,7 @@ string to_string(shared_ptr<mono> tau) {
 	}
 }
 
-string to_string(shared_ptr<poly> sigma) {
+string to_string(shared_ptr<Poly> sigma) {
 	switch (sigma->T) {
 	case 0:
 		return to_string(sigma->tau);
@@ -71,12 +71,12 @@ string to_string(shared_ptr<poly> sigma) {
 	}
 }
 
-shared_ptr<mono> newvar() {
-	return make_shared<mono>(mono { 0 });
+shared_ptr<Mono> newvar() {
+	return make_shared<Mono>(Mono { 0 });
 }
 
-shared_ptr<mono> inst(shared_ptr<mono> tau,
-		map<shared_ptr<mono>, shared_ptr<mono> >& m) {
+shared_ptr<Mono> inst(shared_ptr<Mono> tau,
+		map<shared_ptr<Mono>, shared_ptr<Mono> >& m) {
 	tau = find(tau);
 	switch (tau->T) {
 	case 0:
@@ -86,7 +86,7 @@ shared_ptr<mono> inst(shared_ptr<mono> tau,
 			return tau;
 		}
 	case 1: {
-		auto t = make_shared<mono>();
+		auto t = make_shared<Mono>();
 		t->T = tau->T;
 		t->D = tau->D;
 		for (int i = 0; i < tau->tau.size(); i++) {
@@ -97,8 +97,8 @@ shared_ptr<mono> inst(shared_ptr<mono> tau,
 	}
 }
 
-shared_ptr<mono> inst(shared_ptr<poly> sigma,
-		map<shared_ptr<mono>, shared_ptr<mono> >& m) {
+shared_ptr<Mono> inst(shared_ptr<Poly> sigma,
+		map<shared_ptr<Mono>, shared_ptr<Mono> >& m) {
 	switch (sigma->T) {
 	case 0:
 		return inst(sigma->tau, m);
@@ -110,12 +110,12 @@ shared_ptr<mono> inst(shared_ptr<poly> sigma,
 	}
 }
 
-shared_ptr<mono> inst(shared_ptr<poly> sigma) {
-	map<shared_ptr<mono>, shared_ptr<mono> > m;
+shared_ptr<Mono> inst(shared_ptr<Poly> sigma) {
+	map<shared_ptr<Mono>, shared_ptr<Mono> > m;
 	return inst(sigma, m);
 }
 
-void ftv(set<shared_ptr<mono> >& f, shared_ptr<mono> tau) {
+void ftv(set<shared_ptr<Mono> >& f, shared_ptr<Mono> tau) {
 	tau = find(tau);
 	switch (tau->T) {
 	case 0:
@@ -129,7 +129,7 @@ void ftv(set<shared_ptr<mono> >& f, shared_ptr<mono> tau) {
 	}
 }
 
-void ftv(set<shared_ptr<mono> >& f, shared_ptr<poly> sigma) {
+void ftv(set<shared_ptr<Mono> >& f, shared_ptr<Poly> sigma) {
 	switch (sigma->T) {
 	case 0:
 		ftv(f, sigma->tau);
@@ -141,33 +141,32 @@ void ftv(set<shared_ptr<mono> >& f, shared_ptr<poly> sigma) {
 	}
 }
 
-shared_ptr<poly> gen(shared_ptr<map<string, shared_ptr<poly> > > context,
-		shared_ptr<mono> tau) {
+shared_ptr<Poly> gen(shared_ptr<map<string, shared_ptr<Poly> > > context,
+		shared_ptr<Mono> tau) {
 	tau = find(tau);
-	set<shared_ptr<mono> > f;
+	set<shared_ptr<Mono> > f;
 	for (auto c : *context) {
-		set<shared_ptr<mono> > fi;
+		set<shared_ptr<Mono> > fi;
 		ftv(fi, c.second);
 		f.insert(fi.begin(), fi.end());
 	}
-	set<shared_ptr<mono> > fp;
+	set<shared_ptr<Mono> > fp;
 	ftv(fp, tau);
 	for (auto i : f) {
 		fp.erase(i);
 	}
-	fp.erase(f.begin(), f.end());
-	map<shared_ptr<mono>, shared_ptr<mono> > m;
+	map<shared_ptr<Mono>, shared_ptr<Mono> > m;
 	for (auto f : fp) {
 		m[f] = newvar();
 	}
-	auto g = make_shared<poly>(poly { 0, inst(tau, m) });
+	auto g = make_shared<Poly>(Poly { 0, inst(tau, m) });
 	for (auto f : m) {
-		g = make_shared<poly>(poly { 1, nullptr, f.second, g });
+		g = make_shared<Poly>(Poly { 1, nullptr, f.second, g });
 	}
 	return g;
 }
 
-bool occ(shared_ptr<mono> a, shared_ptr<mono> b) {
+bool occ(shared_ptr<Mono> a, shared_ptr<Mono> b) {
 	switch (b->T) {
 	case 0:
 		return a == b;
@@ -181,7 +180,7 @@ bool occ(shared_ptr<mono> a, shared_ptr<mono> b) {
 	}
 }
 
-void unify(shared_ptr<mono> a, shared_ptr<mono> b) {
+void unify(shared_ptr<Mono> a, shared_ptr<Mono> b) {
 	a = find(a);
 	b = find(b);
 	if (a->T == 1 && b->T == 1 && a->D == b->D
@@ -213,15 +212,18 @@ void unify(shared_ptr<mono> a, shared_ptr<mono> b) {
 	}
 }
 
-struct expr {
+struct Expr {
 	int T;
 	string x;
-	shared_ptr<expr> e1, e2, e;
-	vector<pair<string, shared_ptr<expr> > > xes;
-	vector<pair<vector<string>, shared_ptr<expr> > > pes;
-	shared_ptr<mono> type;
+	shared_ptr<Expr> e1, e2, e;
+	vector<pair<string, shared_ptr<Expr> > > xes;
+	vector<pair<vector<string>, shared_ptr<Expr> > > pes;
+	string ffi;
+	shared_ptr<Mono> type;
+	shared_ptr<Poly> sig;
 
-	void infer(shared_ptr<map<string, shared_ptr<poly> > > context) {
+	void infer(shared_ptr<map<string, shared_ptr<Poly> > > context,
+			map<string, int>& cl) {
 		switch (T) {
 		case 0:
 			if (context->count(x)) {
@@ -230,25 +232,25 @@ struct expr {
 				cout << "ERROR!" << endl; //FIXME
 				cout << x << " not in context" << endl;
 			}
-			return;
+			break;
 		case 1: {
-			e1->infer(context);
-			e2->infer(context);
+			e1->infer(context, cl);
+			e2->infer(context, cl);
 			type = newvar();
-			auto t = make_shared<mono>();
+			auto t = make_shared<Mono>();
 			t->T = 1;
 			t->D = "->";
 			t->tau.push_back(e2->type);
 			t->tau.push_back(type);
 			unify(e1->type, t);
-			return;
+			break;
 		}
 		case 2: {
 			auto tau = newvar();
 			auto contextx = context->count(x) ? (*context)[x] : nullptr;
-			(*context)[x] = make_shared<poly>(poly { 0, tau });
-			e->infer(context);
-			type = make_shared<mono>();
+			(*context)[x] = make_shared<Poly>(Poly { 0, tau });
+			e->infer(context, cl);
+			type = make_shared<Mono>();
 			type->T = 1;
 			type->D = "->";
 			type->tau.push_back(tau);
@@ -258,24 +260,24 @@ struct expr {
 			} else {
 				(*context)[x] = contextx;
 			}
-			return;
+			break;
 		}
 		case 3: {
-			e1->infer(context);
+			e1->infer(context, cl);
 			auto contextx = context->count(x) ? (*context)[x] : nullptr;
 			(*context)[x] = gen(context, e1->type);
-			e2->infer(context);
+			e2->infer(context, cl);
 			type = e2->type;
 			if (contextx == nullptr) {
 				context->erase(x);
 			} else {
 				(*context)[x] = contextx;
 			}
-			return;
+			break;
 		}
 		case 4: {
-			vector<shared_ptr<mono> > taus_1;
-			vector<shared_ptr<poly> > contextx_1;
+			vector<shared_ptr<Mono> > taus_1;
+			vector<shared_ptr<Poly> > contextx_1;
 			for (int i = 0; i < xes.size(); i++) {
 				if (context->count(xes[i].first)) {
 					contextx_1.push_back((*context)[xes[i].first]);
@@ -283,11 +285,11 @@ struct expr {
 					contextx_1.push_back(nullptr);
 				}
 				taus_1.push_back(newvar());
-				(*context)[xes[i].first] = make_shared<poly>(
-						poly { 0, taus_1[i] });
+				(*context)[xes[i].first] = make_shared<Poly>(
+						Poly { 0, taus_1[i] });
 			}
 			for (int i = 0; i < xes.size(); i++) {
-				xes[i].second->infer(context);
+				xes[i].second->infer(context, cl);
 				unify(xes[i].second->type, taus_1[i]);
 			}
 			for (int i = 0; i < xes.size(); i++) {
@@ -297,8 +299,8 @@ struct expr {
 					(*context)[xes[i].first] = contextx_1[i];
 				}
 			}
-			vector<shared_ptr<poly> > taus_2;
-			vector<shared_ptr<poly> > contextx_2;
+			vector<shared_ptr<Poly> > taus_2;
+			vector<shared_ptr<Poly> > contextx_2;
 			for (int i = 0; i < xes.size(); i++) {
 				taus_2.push_back(gen(context, xes[i].second->type));
 			}
@@ -310,7 +312,7 @@ struct expr {
 				}
 				(*context)[xes[i].first] = taus_2[i];
 			}
-			e->infer(context);
+			e->infer(context, cl);
 			type = e->type;
 			for (int i = 0; i < xes.size(); i++) {
 				if (contextx_2[i] == nullptr) {
@@ -319,15 +321,23 @@ struct expr {
 					(*context)[xes[i].first] = contextx_2[i];
 				}
 			}
-			return;
+			break;
 		}
 		case 5: {
-			e->infer(context);
+			e->infer(context, cl);
 			type = newvar();
 			for (int i = 0; i < pes.size(); i++) {
+				if (!cl.count(pes[i].first[0])
+						|| cl[pes[i].first[0]] != pes[i].first.size() - 1) {
+					cout << "ERROR!" << endl; //FIXME
+					cout << pes[i].first[0]
+							<< " data constructor not does exist or does not match"
+							<< endl;
+					return;
+				}
 				auto tau = inst((*context)[pes[i].first[0]]);
-				vector<shared_ptr<mono> > taus_1;
-				vector<shared_ptr<poly> > contextx_1;
+				vector<shared_ptr<Mono> > taus_1;
+				vector<shared_ptr<Poly> > contextx_1;
 				for (int j = 1; j < pes[i].first.size(); j++) {
 					if (context->count(pes[i].first[j])) {
 						contextx_1.push_back((*context)[pes[i].first[j]]);
@@ -335,18 +345,18 @@ struct expr {
 						contextx_1.push_back(nullptr);
 					}
 					taus_1.push_back(newvar());
-					auto t1 = make_shared<mono>(), t2 = newvar();
+					auto t1 = make_shared<Mono>(), t2 = newvar();
 					t1->T = 1;
 					t1->D = "->";
 					t1->tau.push_back(taus_1[j - 1]);
 					t1->tau.push_back(t2);
 					unify(t1, tau);
 					tau = t2;
-					(*context)[pes[i].first[j]] = make_shared<poly>(poly { 0,
+					(*context)[pes[i].first[j]] = make_shared<Poly>(Poly { 0,
 							taus_1[j - 1] });
 				}
 				unify(e->type, tau);
-				pes[i].second->infer(context);
+				pes[i].second->infer(context, cl);
 				unify(type, pes[i].second->type);
 				for (int j = 1; j < pes[i].first.size(); j++) {
 					if (contextx_1[j - 1] == nullptr) {
@@ -356,8 +366,15 @@ struct expr {
 					}
 				}
 			}
-			return;
+			break;
 		}
+		case 6: {
+			type = newvar();
+			break;
+		}
+		}
+		if (sig != nullptr) {
+			unify(type, inst(sig));
 		}
 	}
 
@@ -400,220 +417,168 @@ struct expr {
 			s << "})";
 			return s.str();
 		}
+		case 6:
+			return ffi;
 		}
 	}
 
-	string codegen() {
+	void codegen(ostream& s, map<string, int>& ci) {
 		switch (T) {
 		case 0:
-			return x;
+			s << "$v_bsl_" << x;
+			return;
 		case 1:
-			return "(*((function<void*(void*)>*)(" + e1->codegen() + ")))("
-					+ e2->codegen() + ")";
+			s << "(*((function<void*(void*)>*)(";
+			e1->codegen(s, ci);
+			s << ")))(";
+			e2->codegen(s, ci);
+			s << ")";
+			return;
 		case 2:
-			return "new function<void*(void*)>([=](void* " + x
-					+ ") -> void* { return " + e->codegen() + "; })";
+			s << "new function<void*(void*)>([=](void* " << "$v_bsl_" << x
+					<< ") -> void* { return ";
+			e->codegen(s, ci);
+			s << "; })";
+			return;
 		case 3:
-			return "[=]() -> void* { void* " + x + " = " + e1->codegen()
-					+ "; return " + e2->codegen() + "; } ()";
-		case 4: {
-			return "NOT IMPLEMENTED";
-		}
-		case 5: {
-			return "NOT IMPLEMENTED";
-		}
+			s << "[=]() -> void* { void* " << "$v_bsl_" << x << " = ";
+			e1->codegen(s, ci);
+			s << "; return ";
+			e2->codegen(s, ci);
+			s << "; } ()";
+			return;
+		case 4:
+			s << "NOT IMPLEMENTED";
+			return;
+		case 5:
+			s << "[=]() -> void* { void* $c_bsl_tmp = ";
+			e->codegen(s, ci);
+			s << "; switch ((($d_bsl_" << find(e->type)->D
+					<< "*)($c_bsl_tmp))->T) {";
+			for (int i = 0; i < pes.size(); i++) {
+				s << "case " << ci[pes[i].first[0]] << ": {";
+				for (int j = 1; j < pes[i].first.size(); j++) {
+					s << "void* " << "$v_bsl_" << pes[i].first[j - 1]
+							<< " = (($d_bsl_" << pes[i].first[0]
+							<< ")((($d_bsl_" << e->type->D
+							<< "*)($c_bsl_tmp))->ptr))->$v_bsl_" << j << ";";
+				}
+				s << " return ";
+				pes[i].second->codegen(s, ci);
+				s << "; }";
+			}
+			s << "} }()";
+			return;
+		case 6:
+			s << ffi;
+			return;
 		}
 	}
 };
 
-void test1() {
-	auto id = make_shared<expr>();
-	id->T = 2;
-	id->x = "x";
-	id->e = make_shared<expr>();
-	id->e->T = 0;
-	id->e->x = "x";
-	auto v1 = newvar();
-	auto v2 = newvar();
-	auto pair = newvar();
-	pair->T = 1;
-	pair->D = "pair";
-	pair->tau.push_back(v1);
-	pair->tau.push_back(v2);
-	auto tttt = newvar();
-	tttt->T = 1;
-	tttt->D = "->";
-	tttt->tau.push_back(v2);
-	tttt->tau.push_back(pair);
-	auto pf = newvar();
-	pf->T = 1;
-	pf->D = "->";
-	pf->tau.push_back(v1);
-	pf->tau.push_back(tttt);
-	auto context = make_shared<map<string, shared_ptr<poly> > >();
-	(*context)["pair"] = gen(context, pf);
-	auto ntype = make_shared<poly>();
-	ntype->T = 0;
-	ntype->tau = make_shared<mono>();
-	ntype->tau->T = 1;
-	ntype->tau->D = "int";
-	(*context)["n"] = ntype;
-	auto mtype = make_shared<poly>();
-	mtype->T = 0;
-	mtype->tau = make_shared<mono>();
-	mtype->tau->T = 1;
-	mtype->tau->D = "char";
-	(*context)["m"] = mtype;
-	auto let = make_shared<expr>();
-	let->T = 3;
-	let->x = "id";
-	let->e1 = id;
+struct Data {
+	string name;
+	vector<pair<string, shared_ptr<Poly> > > constructors;
+};
 
-	auto e2 = make_shared<expr>();
-	e2->T = 1;
-	e2->e1 = make_shared<expr>(expr { 0, "pair" });
-	auto t = make_shared<expr>();
-	t->T = 1;
-	t->e1 = make_shared<expr>(expr { 0, "id" });
-	t->e2 = make_shared<expr>(expr { 0, "n" });
-	e2->e2 = t;
-	auto e3 = make_shared<expr>();
-	e3->T = 1;
-	e3->e1 = e2;
-	auto tt = make_shared<expr>();
-	tt->T = 1;
-	tt->e1 = make_shared<expr>(expr { 0, "id" });
-	tt->e2 = make_shared<expr>(expr { 0, "m" });
-	e3->e2 = tt;
+pair<shared_ptr<map<string, shared_ptr<Data> > >, shared_ptr<Expr> > parse() {
+	auto data = make_shared<map<string, shared_ptr<Data> > >();
 
-//		cout<<id->to_string()<<endl;
+//data Bool = True | False
+	auto _bool = make_shared<Data>(Data { "Bool" });
+	_bool->constructors.push_back(make_pair("False", make_shared<Poly>(Poly { 0,
+			make_shared<Mono>(Mono { 1, nullptr, "Bool" }) })));
+	_bool->constructors.push_back(make_pair("True", make_shared<Poly>(Poly { 0,
+			make_shared<Mono>(Mono { 1, nullptr, "Bool" }) })));
+	(*data)[_bool->name] = _bool;
 
-	auto pr = make_shared<expr>();
-	pr->T = 0;
-	pr->x = "pair";
-//		pr->infer(context);
-//		cout<<"infered"<<endl;
-//		cout<<to_string(pr->type)<<endl;
-	let->e2 = e3;
-	let->infer(context);
-	cout << "Context:" << endl;
-	for (auto kv : *context) {
-		cout << kv.first << " :: " << to_string(kv.second) << endl;
-	}
-	cout << "Result:" << endl;
-	cout << let->to_string() << " :: " << to_string(gen(context, let->type))
-			<< endl;
-	cout << let->codegen() << endl;
+//(\x->(case x of {false->true;true->false}))
+	auto expr = make_shared<Expr>();
+	expr->T = 2;
+	expr->x = "x";
+	auto d = expr->e = make_shared<Expr>();
+	d->T = 5;
+	d->e = make_shared<Expr>(Expr { 0, "x" });
+	d->pes.push_back(
+			make_pair(vector<string> { "False" }, make_shared<Expr>(Expr { 0,
+					"True" })));
+	d->pes.push_back(
+			make_pair(vector<string> { "True" }, make_shared<Expr>(Expr { 0,
+					"False" })));
+
+	return make_pair(data, expr);
 }
 
-void test2() {
-	auto context = make_shared<map<string, shared_ptr<poly> > >();
-	auto w = make_shared<expr>();
-	w->T = 2;
-	w->x = "x";
-	w->e = make_shared<expr>();
-	w->e->T = 1;
-	w->e->e1 = make_shared<expr>(expr { 0, "x" });
-	w->e->e2 = make_shared<expr>(expr { 0, "x" });
-	w->infer(context);
-	cout << "Context:" << endl;
-	for (auto kv : *context) {
-		cout << kv.first << " :: " << to_string(kv.second) << endl;
-	}
-	cout << "Result:" << endl;
-	cout << w->to_string() << " :: " << to_string(gen(context, w->type))
-			<< endl;
-}
+void codegen(
+		pair<shared_ptr<map<string, shared_ptr<Data> > >, shared_ptr<Expr> > prog) {
+	auto data = prog.first;
+	auto expr = prog.second;
 
-void test3() {
-	test1();
-	test2();
-	auto context = make_shared<map<string, shared_ptr<poly> > >();
-	auto w = make_shared<expr>();
-	w->T = 4;
-	auto f = make_shared<expr>();
-	f->T = 1;
-	f->e1 = make_shared<expr>(expr { 0, "f" });
-	f->e2 = make_shared<expr>(expr { 0, "x" });
-	w->xes.push_back(make_pair("x", f));
-	w->e = make_shared<expr>();
-	w->e->T = 0;
-	w->e->x = "x";
-	auto ww = make_shared<expr>();
-	ww->T = 2;
-	ww->x = "f";
-	ww->e = w;
-	ww->infer(context);
-	cout << "Context:" << endl;
-	for (auto kv : *context) {
-		cout << kv.first << " :: " << to_string(kv.second) << endl;
+	stringstream d;
+	map<string, int> cl, ci;
+	for (auto dai : *data) {
+		auto da = dai.second;
+		d << "struct $d_bsl_" << da->name << " { int T; void* ptr; };" << endl;
+		for (int i = 0; i < da->constructors.size(); i++) {
+			auto c = da->constructors[i];
+			d << "struct $d_bsl_" << c.first << " {";
+			auto t1 = c.second;
+			while (t1->T == 1) {
+				t1 = t1->sigma;
+			}
+			auto t2 = t1->tau;
+			int &j = cl[c.first];
+			while (t2->T == 2 && t2->D == "->") {
+				d << "d" << j;
+				j++;
+				t2 = t2->tau[1];
+			}
+			ci[c.first] = i;
+			d << " };" << endl;
+		}
 	}
-	cout << "Result:" << endl;
-	cout << ww->to_string() << " :: " << to_string(gen(context, ww->type))
+	cout << d.str() << endl;
+	for (auto dai : *data) {
+		auto da = dai.second;
+		for (int i = 0; i < da->constructors.size(); i++) {
+			auto c = da->constructors[i];
+			auto e = make_shared<Expr>();
+			e->T = 3;
+			e->x = c.first;
+			auto lam = make_shared<Expr>();
+			auto cur = lam;
+			for (int j = 0; j < cl[c.first]; j++) {
+				stringstream s;
+				s << "$v_bsl_" << j;
+				cur->T = 2;
+				cur->x = s.str();
+				cur->e = make_shared<Expr>();
+				cur = cur->e;
+			}
+			stringstream s;
+			s << "new " << "$d_bsl_" << da->name << " { " << i << ", new "
+					<< "$d_bsl_" << c.first << "{";
+			for (int j = 0; j < cl[c.first]; j++) {
+				s << " $v_bsl_" << j << (j + 1 == cl[c.first] ? "" : " ");
+			}
+			s << " } }";
+			cur->T = 6;
+			cur->ffi = s.str();
+			e->e1 = lam;
+			e->e1->sig = c.second;
+			e->e2 = expr;
+			expr = e;
+		}
+	}
+	stringstream c;
+	expr->infer(make_shared<map<string, shared_ptr<Poly> > >(), cl);
+	cout << "#include <functional>" << endl << "using std::function;" << endl
+			<< "//" << expr->to_string() << " :: " << to_string(expr->type)
 			<< endl;
-	cout << ww->codegen() << endl;
+	expr->codegen(c, ci);
+	cout << "int main() { " << c.str() << "; }" << endl;
 }
 
 int main() {
-	test3();
-	auto context = make_shared<map<string, shared_ptr<poly> > >();
-	{
-		auto v1 = newvar();
-		auto v2 = newvar();
-		auto pair = newvar();
-		pair->T = 1;
-		pair->D = "pair";
-		pair->tau.push_back(v1);
-		pair->tau.push_back(v2);
-		auto tttt = newvar();
-		tttt->T = 1;
-		tttt->D = "->";
-		tttt->tau.push_back(v2);
-		tttt->tau.push_back(pair);
-		auto pf = newvar();
-		pf->T = 1;
-		pf->D = "->";
-		pf->tau.push_back(v1);
-		pf->tau.push_back(tttt);
-		(*context)["pair"] = gen(context, pf);
-	}
-	{
-		auto v1 = newvar();
-		auto v2 = v1;
-		auto pair = newvar();
-		pair->T = 1;
-		pair->D = "pair";
-		pair->tau.push_back(v1);
-		pair->tau.push_back(v2);
-		auto tttt = newvar();
-		tttt->T = 1;
-		tttt->D = "->";
-		tttt->tau.push_back(v2);
-		tttt->tau.push_back(pair);
-		auto pf = newvar();
-		pf->T = 1;
-		pf->D = "->";
-		pf->tau.push_back(v1);
-		pf->tau.push_back(tttt);
-		(*context)["pair2"] = gen(context, pf);
-	}
-	auto c = make_shared<expr>();
-	c->T = 2;
-	c->x = "x";
-	auto d = c->e = make_shared<expr>();
-	d->T = 5;
-	d->e = make_shared<expr>(expr { 0, "x" });
-	d->pes.push_back(
-			make_pair(vector<string> { "pair", "a", "b" },
-					make_shared<expr>(expr { 0, "b" })));
-	d->pes.push_back(
-			make_pair(vector<string> { "pair2", "a", "b" },
-					make_shared<expr>(expr { 0, "b" })));
-	for (auto kv : *context) {
-		cout << kv.first << " :: " << to_string(kv.second) << endl;
-	}
-	c->infer(context);
-	cout << c->to_string() << " :: " << flush;
-	cout << to_string(gen(context, c->type)) << endl;
-	cout << c->codegen() << endl;
+	codegen(parse());
 }
