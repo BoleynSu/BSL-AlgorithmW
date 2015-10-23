@@ -517,7 +517,7 @@ pair<shared_ptr<map<string, shared_ptr<Data> > >, shared_ptr<Expr> > parse() {
 	_bool->constructors.push_back(make_pair("true", make_shared<Poly>(Poly { 0,
 			make_shared<Mono>(Mono { 1, nullptr, "bool" }) })));
 	(*data)[_bool->name] = _bool;
-//data int where zero::int ; suc::int->int
+//data int where zero::int ; suc::int->int ; sum::int->int->int
 	auto _int = make_shared<Data>(Data { "int" });
 	_int->constructors.push_back(make_pair("zero", make_shared<Poly>(Poly { 0,
 			make_shared<Mono>(Mono { 1, nullptr, "int" }) })));
@@ -526,6 +526,36 @@ pair<shared_ptr<map<string, shared_ptr<Data> > >, shared_ptr<Expr> > parse() {
 					vector<shared_ptr<Mono> > { make_shared<Mono>(Mono { 1,
 							nullptr, "int" }), make_shared<Mono>(Mono { 1,
 							nullptr, "int" }) } }) })));
+	_int->constructors.push_back(
+			make_pair("sum",
+					make_shared<Poly>(
+							Poly { 0,
+									make_shared<Mono>(
+											Mono { 1, nullptr, "->",
+													vector<shared_ptr<Mono> > {
+															make_shared<Mono>(
+																	Mono { 1,
+																			nullptr,
+																			"int" }),
+															make_shared<Mono>(
+																	Mono { 1,
+																			nullptr,
+																			"->",
+																			vector<
+																					shared_ptr<
+																							Mono> > {
+																					make_shared<
+																							Mono>(
+																							Mono {
+																									1,
+																									nullptr,
+																									"int" }),
+																					make_shared<
+																							Mono>(
+																							Mono {
+																									1,
+																									nullptr,
+																									"int" }) } }) } }) })));
 	(*data)[_int->name] = _int;
 //data term where int_term::int->term int ; bool_term::bool->term bool
 
@@ -596,7 +626,7 @@ void codegen(
 			s << "new " << "$d_bsl_" << da->name << " { " << i << ", new "
 					<< "$d_bsl_" << c.first << "{";
 			for (int j = 0; j < cl[c.first]; j++) {
-				s << " $v_bsl_" << j << (j + 1 == cl[c.first] ? "" : " ");
+				s << " $v_bsl_" << j << (j + 1 == cl[c.first] ? "" : ",");
 			}
 			s << " } }";
 			cur->T = 6;
