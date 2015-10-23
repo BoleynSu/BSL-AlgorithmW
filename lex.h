@@ -16,7 +16,7 @@ struct Position {
 enum TokenType {
 	DATA, WHERE, FORALL, DOT, DOUBLE_COLON, RIGHTARROW, SEMICOLON,
 
-	IDENTIFIER, LAMBDA, LET, EQUAL,IN, REC, AND,  CASE, OF, FFI,
+	IDENTIFIER, LAMBDA, LET, EQUAL, IN, REC, AND, CASE, OF, FFI,
 
 	LEFT_PARENTHESIS, RIGHT_PARENTHESIS, LEFT_BRACE, RIGHT_BRACE,
 
@@ -146,6 +146,22 @@ struct Lexer {
 					c = is.get();
 					if (c == EOF) {
 						break;
+					} else if (c == '\n') {
+						position.endRow++;
+						position.endColumn = 1;
+					} else if (c == '\r') {
+						c = is.get();
+						if (c != EOF) {
+							if (c == '\n') {
+								data.push_back(c);
+							} else {
+								is.putback(c);
+							}
+						}
+						position.endRow++;
+						position.endColumn = 1;
+					} else {
+						position.endColumn++;
 					}
 				} while (c == ' ' || c == '\t' || c == '\n' || c == '\r');
 				if (c == EOF) {
@@ -154,6 +170,7 @@ struct Lexer {
 					string sep;
 					do {
 						data.push_back(c);
+						position.endColumn++;
 						sep.push_back(c);
 						c = is.get();
 						if (c == EOF) {
@@ -172,6 +189,22 @@ struct Lexer {
 							c = is.get();
 							if (c == EOF) {
 								break;
+							} else if (c == '\n') {
+								position.endRow++;
+								position.endColumn = 1;
+							} else if (c == '\r') {
+								c = is.get();
+								if (c != EOF) {
+									if (c == '\n') {
+										data.push_back(c);
+									} else {
+										is.putback(c);
+									}
+								}
+								position.endRow++;
+								position.endColumn = 1;
+							} else {
+								position.endColumn++;
 							}
 						}
 						if (c == EOF) {

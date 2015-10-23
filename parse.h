@@ -146,6 +146,58 @@ struct Parser {
 			expect(IN);
 			expr->e = parse_expr();
 		} else {
+			expr = parse_expr_();
+			if (match(LAMBDA) || match(LET) || match(REC)) {
+				auto e1 = parse_expr();
+				auto e2 = make_shared<Expr>();
+				e2->T = 1;
+				e2->e1 = expr;
+				e2->e2 = e1;
+				expr = e2;
+			}
+		}
+		return expr;
+	}
+	shared_ptr<Expr> parse_expr_() {
+		auto expr = make_shared<Expr>();
+		if (accept(IDENTIFIER)) {
+			expr->T = 0;
+			expr->x = t.data;
+		} else if (accept(LEFT_PARENTHESIS)) {
+			expr = parse_expr();
+			expect(RIGHT_PARENTHESIS);
+		} else if (accept(CASE)) {
+			expr->T = 5;
+			expr->e = parse_expr();
+			expect(OF);
+			expect(LEFT_BRACE);
+			while (!match(RIGHT_BRACE)) {
+				expr->pes.push_back(make_pair(vector<string> { }, nullptr));
+				while (!match(RIGHTARROW)) {
+					expect(IDENTIFIER);
+					expr->pes.back().first.push_back(t.data);
+				}
+				expect(RIGHTARROW);
+				expr->pes.back().second = parse_expr();
+				accept(SEMICOLON);
+			}
+			expect(RIGHT_BRACE);
+		} else if (accept(FFI)) {
+			expr->T = 6;
+			stringstream s(t.data);
+			s.get();
+			s.get();
+			s.get();
+			string sep;
+			s >> sep;
+			int a = t.data.find(sep);
+			expr->ffi = t.data.substr(a + sep.size(),
+					t.data.size() - (a + 2 * sep.size()));
+		}
+		while (match(IDENTIFIER) || match(LEFT_PARENTHESIS) || match(CASE)
+				|| match(FFI)) {
+			auto t1 = expr;
+			expr = make_shared<Expr>();
 			if (accept(IDENTIFIER)) {
 				expr->T = 0;
 				expr->x = t.data;
@@ -168,9 +220,8 @@ struct Parser {
 					accept(SEMICOLON);
 				}
 				expect(RIGHT_BRACE);
-			} else {
+			} else if (accept(FFI)) {
 				expr->T = 6;
-				expect(FFI);
 				stringstream s(t.data);
 				s.get();
 				s.get();
@@ -181,52 +232,11 @@ struct Parser {
 				expr->ffi = t.data.substr(a + sep.size(),
 						t.data.size() - (a + 2 * sep.size()));
 			}
-			while (match(IDENTIFIER) || match(LEFT_PARENTHESIS) || match(CASE)
-					|| match(FFI)) {
-				auto t1 = expr;
-				expr = make_shared<Expr>();
-				if (accept(IDENTIFIER)) {
-					expr->T = 0;
-					expr->x = t.data;
-				} else if (accept(LEFT_PARENTHESIS)) {
-					expr = parse_expr();
-					expect(RIGHT_PARENTHESIS);
-				} else if (accept(CASE)) {
-					expr->T = 5;
-					expr->e = parse_expr();
-					expect(OF);
-					expect(LEFT_BRACE);
-					while (!match(RIGHT_BRACE)) {
-						expr->pes.push_back(
-								make_pair(vector<string> { }, nullptr));
-						while (!match(RIGHTARROW)) {
-							expect(IDENTIFIER);
-							expr->pes.back().first.push_back(t.data);
-						}
-						expect(RIGHTARROW);
-						expr->pes.back().second = parse_expr();
-						accept(SEMICOLON);
-					}
-					expect(RIGHT_BRACE);
-				} else {
-					expr->T = 6;
-					expect(FFI);
-					stringstream s(t.data);
-					s.get();
-					s.get();
-					s.get();
-					string sep;
-					s >> sep;
-					int a = t.data.find(sep);
-					expr->ffi = t.data.substr(a + sep.size(),
-							t.data.size() - (a + 2 * sep.size()));
-				}
-				auto t2 = make_shared<Expr>();
-				t2->T = 1;
-				t2->e1 = t1;
-				t2->e2 = expr;
-				expr = t2;
-			}
+			auto t2 = make_shared<Expr>();
+			t2->T = 1;
+			t2->e1 = t1;
+			t2->e2 = expr;
+			expr = t2;
 		}
 		return expr;
 	}
