@@ -41,7 +41,15 @@ in
 rec runIO = \x ->
   case x of {
     Data x -> x;
-    Read g -> runIO (g ffi ffiblock [=]() -> void* { return $v_bsl_Zero; }() ffiblock);
+    Read g -> runIO (g ffi ffiblock [=]() -> void* {
+      int v;
+      scanf("%d", &v);
+      void *x = new $t_bsl_Int { 0, 0 };
+      while (v--) {
+          x = new $t_bsl_Int { 1, new $d_bsl_Suc { x } };
+      }
+      return x;
+    }() ffiblock);
     Write c x -> (\x -> \y -> y)
                  ffi ffiblock [=](void* x) -> void* {
                    int v = 0;
@@ -89,5 +97,6 @@ rec eval = \x ->
     A a b -> add (eval a) (eval b);
     E a b -> eq (eval a) (eval b)
   }
-in runIO (putInt (eval (let four = let two = let one = I (Suc Zero) in A one one in A two two in four)))
-
+in runIO (
+bind getInt \x->
+(putInt (eval (let four = let two = let one = I x in A one one in A two two in four))))
