@@ -123,8 +123,6 @@ struct Codegener {
 					<< endl;
 			for (int i = 0; i < da->constructors.size(); i++) {
 				auto c = da->constructors[i];
-				cerr << "//" << c.first << " :: " << to_string(c.second)
-						<< endl;
 				out << "struct $d_bsl_" << c.first << " {";
 				auto t1 = c.second;
 				while (t1->T == 1) {

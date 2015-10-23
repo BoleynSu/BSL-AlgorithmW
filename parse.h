@@ -30,6 +30,7 @@ struct Parser {
 		t = lexer.look_at(0);
 		return lexer.look_at(0).token_type == token_type;
 	}
+
 	bool accept(TokenType token_type) {
 		if (match(token_type)) {
 			lexer.next();
@@ -45,11 +46,23 @@ struct Parser {
 					<< lexer.look_at(0).position.beginColumn << ":" << "expect "
 					<< token_type << " but get " << lexer.look_at(0).token_type
 					<< " (" << lexer.look_at(0).data << ")" << endl;
-			throw 0;
 		}
 	}
 
-	shared_ptr<Mono> parse_monotype_(map<string, shared_ptr<Mono> >& m) {
+	shared_ptr<Mono> parse_monotype(map<string, shared_ptr<Mono> >& m) { //FIXME
+		shared_ptr<Mono> mo = parse_monotype_(m);
+		if (accept(RIGHTARROW)) {
+			auto t = make_shared<Mono>();
+			t->T = 1;
+			t->D = "->";
+			t->tau.push_back(mo);
+			t->tau.push_back(parse_monotype(m));
+			mo = t;
+		}
+		return mo;
+	}
+
+	shared_ptr<Mono> parse_monotype_(map<string, shared_ptr<Mono> >& m) { //FIXME
 		shared_ptr<Mono> mo;
 		if (accept(IDENTIFIER)) {
 			if (m.count(t.data)) {
@@ -64,25 +77,28 @@ struct Parser {
 			mo = parse_monotype(m);
 			expect(RIGHT_PARENTHESIS);
 		}
+		auto t1 = mo;
 		while (match(IDENTIFIER) || match(LEFT_PARENTHESIS)) {
-			mo->tau.push_back(parse_monotype_(m));
+			if (accept(IDENTIFIER)) {
+				if (m.count(t.data)) {
+					mo = m[t.data];
+				} else {
+					mo = make_shared<Mono>();
+					mo->T = 1;
+					mo->D = t.data;
+				}
+			} else {
+				expect(LEFT_PARENTHESIS);
+				mo = parse_monotype(m);
+				expect(RIGHT_PARENTHESIS);
+			}
+			t1->tau.push_back(mo);
 		}
-		return mo;
-	}
-	shared_ptr<Mono> parse_monotype(map<string, shared_ptr<Mono> >& m) {
-		shared_ptr<Mono> mo = parse_monotype_(m);
-		if (accept(RIGHTARROW)) {
-			auto t = make_shared<Mono>();
-			t->T = 1;
-			t->D = "->";
-			t->tau.push_back(mo);
-			t->tau.push_back(parse_monotype(m));
-			mo = t;
-		}
+		mo = t1;
 		return mo;
 	}
 
-	shared_ptr<Poly> parse_polytype(map<string, shared_ptr<Mono> >& m) {
+	shared_ptr<Poly> parse_polytype(map<string, shared_ptr<Mono> >& m) { //FIXME
 		if (accept(FORALL)) {
 			expect(IDENTIFIER);
 			auto alpha = m[t.data] = newvar();
@@ -94,7 +110,7 @@ struct Parser {
 		}
 	}
 
-	pair<string, shared_ptr<Poly> > parse_constructor() {
+	pair<string, shared_ptr<Poly> > parse_constructor() { //FIXME
 		pair<string, shared_ptr<Poly> > c;
 		expect(IDENTIFIER);
 		c.first = t.data;
@@ -128,20 +144,32 @@ struct Parser {
 			expect(RIGHTARROW);
 			expr->e = parse_expr();
 		} else if (accept(LET)) {
+			shared_ptr<Poly> s;
 			expr->T = 3;
 			expect(IDENTIFIER);
 			expr->x = t.data;
+			if (accept(DOUBLE_COLON)) {
+				map<string, shared_ptr<Mono> > m;
+				s = parse_polytype(m);
+			}
 			expect(EQUAL);
 			expr->e1 = parse_expr();
+			expr->e1->sig = s;
 			expect(IN);
 			expr->e2 = parse_expr();
 		} else if (accept(REC)) {
 			expr->T = 4;
 			do {
+				shared_ptr<Poly> s;
 				expect(IDENTIFIER);
 				expr->xes.push_back(make_pair(t.data, nullptr));
+				if (accept(DOUBLE_COLON)) {
+					map<string, shared_ptr<Mono> > m;
+					s = parse_polytype(m);
+				}
 				expect(EQUAL);
 				expr->xes.back().second = parse_expr();
+				expr->xes.back().second->sig = s;
 			} while (accept(AND));
 			expect(IN);
 			expr->e = parse_expr();
@@ -158,6 +186,7 @@ struct Parser {
 		}
 		return expr;
 	}
+
 	shared_ptr<Expr> parse_expr_() {
 		auto expr = make_shared<Expr>();
 		if (accept(IDENTIFIER)) {

@@ -1,18 +1,12 @@
-data Int where {
-  Zero::Int;
-  Suc::Int->Int
-}
+data Int where {}
 
 data Bool where {
   False::Bool;
   True::Bool
 }
 
-data T a where {
-  I::Int->T Int;
-  B::Bool->T Bool;
-  A::T Int->T Int->T Int;
-  E::T Int->T Int->T Bool
+data Pair a b where {
+  Pair::forall a.forall b.a->b->Pair a b
 }
 
 data IO a where {
@@ -35,68 +29,58 @@ in
 let getInt = Read (\x -> Data x)
 in
 
-let putInt = \x -> Write x (Data Zero)
+let putInt :: Int->IO Int= \x -> Write x (Data ffi ` new int(0) `)
 in
 
 rec runIO = \x ->
   case x of {
     Data x -> x;
-    Read g -> runIO (g ffi ffiblock [=]() -> void* {
-      int v;
-      scanf("%d", &v);
-      void *x = new $t_bsl_Int { 0, 0 };
-      while (v--) {
-          x = new $t_bsl_Int { 1, new $d_bsl_Suc { x } };
-      }
+    Read g -> runIO (g ffi ` [=]() -> void* {
+      int *x = new int;
+      scanf("%d", x);
       return x;
-    }() ffiblock);
+    }() `);
     Write c x -> (\x -> \y -> y)
-                 ffi ffiblock [=](void* x) -> void* {
-                   int v = 0;
-                   for (;;) {
-                     $t_bsl_Int * i = ($t_bsl_Int *) x;
-                     if (i->T == 0) {
-                       break;
-                     }
-                     v++;
-                     x = (($d_bsl_Suc*) (i->ptr))->d0;
-                   }
-                   printf("%d\n", v);
-                   return $v_bsl_Zero;
-                 }($v_bsl_c) ffiblock
                  (runIO x)
+                 ffi ` [=](void* x) -> void* {
+                   printf("%d\n", *((int*)x));
+                   return new int(0);
+                 }($v_bsl_c) `
   }
 in
 
-rec add = \a -> \b ->
-  case a of {
-    Zero -> b;
-    Suc c -> Suc (add c b)
+let add :: Int->Int->Int = \a -> \b -> ffi ` new int((*(int*)$v_bsl_a)+(*(int*)$v_bsl_b)) `
+in
+
+let neg :: Int->Int = \a -> ffi ` new int(-(*(int*)$v_bsl_a)) `
+in
+
+let sub :: Int->Int->Int = \a -> \b -> ffi ` new int((*(int*)$v_bsl_a)-(*(int*)$v_bsl_b)) `
+in
+
+let mul :: Int->Int->Int = \a -> \b -> ffi ` new int((*(int*)$v_bsl_a)*(*(int*)$v_bsl_b)) `
+in
+
+let div :: Int->Int->Pair Int Int = \a -> \b ->
+let x :: Int = ffi ` new int((*(int*)$v_bsl_a)/(*(int*)$v_bsl_b)) ` in
+let y :: Int = ffi ` new int((*(int*)$v_bsl_a)%(*(int*)$v_bsl_b)) ` in
+(Pair x y)
+in
+
+let eq0 :: Int->Bool = \a -> ffi ` new $t_bsl_Bool{ (*(int*)$v_bsl_a) == 0 } `
+in
+
+rec gcd = \a -> \b ->
+  case eq0 a of {
+    True -> b;
+    False -> case div b a of {
+      Pair c d -> gcd d a
+    }
   }
 in
 
-rec eq = \a -> \b ->
-  case a of {
-    Zero ->
-      case b of {
-        Zero -> True;
-        Suc d -> False
-      };
-    Suc c ->
-      case b of {
-        Zero -> False;
-        Suc d -> eq c d
-      }
-  }
-in
+runIO (
+bind getInt \x ->
+bind getInt \y ->
+putInt (gcd x y))
 
-rec eval = \x ->
-  case x of {
-    I i -> i;
-    B b -> b;
-    A a b -> add (eval a) (eval b);
-    E a b -> eq (eval a) (eval b)
-  }
-in runIO (
-bind getInt \x->
-(putInt (eval (let four = let two = let one = I x in A one one in A two two in four))))
