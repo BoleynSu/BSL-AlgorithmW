@@ -176,10 +176,6 @@ struct Codegener {
 		}
 		stringstream c;
 		infer(expr, make_shared<map<string, shared_ptr<Poly> > >(), cl);
-		cerr << "//" << expr->to_string() << " :: "
-				<< to_string(
-						gen(make_shared<map<string, shared_ptr<Poly> > >(),
-								expr->type)) << endl;
 		out << "int main() { ";
 		codegen(expr, ci);
 		out << "; }" << endl;
