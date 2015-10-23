@@ -77,4 +77,5 @@ rec eval = \x ->
     A a b -> add (eval a) (eval b);
     E a b -> eq (eval a) (eval b)
   }
-in eval;
+in runIO (putChar (eval (let four = let two = let one = I (Suc Zero) in A one one in A two two in four)));
+
