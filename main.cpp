@@ -510,13 +510,24 @@ struct Data {
 pair<shared_ptr<map<string, shared_ptr<Data> > >, shared_ptr<Expr> > parse() {
 	auto data = make_shared<map<string, shared_ptr<Data> > >();
 
-//data bool = true | false
+//data bool where true::bool ; false::bool
 	auto _bool = make_shared<Data>(Data { "bool" });
 	_bool->constructors.push_back(make_pair("false", make_shared<Poly>(Poly { 0,
 			make_shared<Mono>(Mono { 1, nullptr, "bool" }) })));
 	_bool->constructors.push_back(make_pair("true", make_shared<Poly>(Poly { 0,
 			make_shared<Mono>(Mono { 1, nullptr, "bool" }) })));
 	(*data)[_bool->name] = _bool;
+//data int where zero::int ; suc::int->int
+	auto _int = make_shared<Data>(Data { "int" });
+	_int->constructors.push_back(make_pair("zero", make_shared<Poly>(Poly { 0,
+			make_shared<Mono>(Mono { 1, nullptr, "int" }) })));
+	_int->constructors.push_back(make_pair("suc", make_shared<Poly>(Poly { 0,
+			make_shared<Mono>(Mono { 1, nullptr, "->",
+					vector<shared_ptr<Mono> > { make_shared<Mono>(Mono { 1,
+							nullptr, "int" }), make_shared<Mono>(Mono { 1,
+							nullptr, "int" }) } }) })));
+	(*data)[_int->name] = _int;
+//data term where int_term::int->term int ; bool_term::bool->term bool
 
 //(\x->(case x of {false->true;true->false}))
 	auto expr = make_shared<Expr>();
@@ -555,7 +566,7 @@ void codegen(
 			auto t2 = t1->tau;
 			int &j = cl[c.first];
 			while (t2->T == 1 && t2->D == "->") {
-				d << "d" << j;
+				d << "void* " << "d" << j << ";";
 				j++;
 				t2 = t2->tau[1];
 			}
