@@ -460,20 +460,34 @@ struct Expr {
 			s << "; } ()";
 			return;
 		case 4:
-			s << "NOT IMPLEMENTED";
+//FIXME
+//			s << "[=]() -> void* {";
+//			s << " void* ";
+//			for (int i = 0; i < xes.size(); i++) {
+//				s << (i ? ", " : "") << "$v_bsl_" << xes[i].first << " = new ";
+//				//TODO
+//			}
+//			for (int i = 0; i < xes.size(); i++) {
+//				s << "{ void* $t_bsl_tmp = ";
+//				xes[i].second->codegen(s, ci);
+//				s << "; memcpy }";
+//			}
+//			s << " return ";
+//			e2->codegen(s, ci);
+//			s << "; } ()";
 			return;
 		case 5:
-			s << "[=]() -> void* { void* $c_bsl_tmp = ";
+			s << "[=]() -> void* { void* $t_bsl_tmp = ";
 			e->codegen(s, ci);
 			s << "; switch ((($d_bsl_" << find(e->type)->D
-					<< "*)($c_bsl_tmp))->T) {";
+					<< "*)($t_bsl_tmp))->T) {";
 			for (int i = 0; i < pes.size(); i++) {
 				s << "case " << ci[pes[i].first[0]] << ": {";
 				for (int j = 1; j < pes[i].first.size(); j++) {
 					s << "void* " << "$v_bsl_" << pes[i].first[j]
 							<< " = (($d_bsl_" << pes[i].first[0]
 							<< ")((($d_bsl_" << e->type->D
-							<< "*)($c_bsl_tmp))->ptr))->$v_bsl_" << j << ";";
+							<< "*)($t_bsl_tmp))->ptr))->$v_bsl_" << j << ";";
 				}
 				s << " return ";
 				pes[i].second->codegen(s, ci);
@@ -496,12 +510,12 @@ struct Data {
 pair<shared_ptr<map<string, shared_ptr<Data> > >, shared_ptr<Expr> > parse() {
 	auto data = make_shared<map<string, shared_ptr<Data> > >();
 
-//data Bool = True | False
-	auto _bool = make_shared<Data>(Data { "Bool" });
-	_bool->constructors.push_back(make_pair("False", make_shared<Poly>(Poly { 0,
-			make_shared<Mono>(Mono { 1, nullptr, "Bool" }) })));
-	_bool->constructors.push_back(make_pair("True", make_shared<Poly>(Poly { 0,
-			make_shared<Mono>(Mono { 1, nullptr, "Bool" }) })));
+//data bool = true | false
+	auto _bool = make_shared<Data>(Data { "bool" });
+	_bool->constructors.push_back(make_pair("false", make_shared<Poly>(Poly { 0,
+			make_shared<Mono>(Mono { 1, nullptr, "bool" }) })));
+	_bool->constructors.push_back(make_pair("true", make_shared<Poly>(Poly { 0,
+			make_shared<Mono>(Mono { 1, nullptr, "bool" }) })));
 	(*data)[_bool->name] = _bool;
 
 //(\x->(case x of {false->true;true->false}))
@@ -512,11 +526,11 @@ pair<shared_ptr<map<string, shared_ptr<Data> > >, shared_ptr<Expr> > parse() {
 	d->T = 5;
 	d->e = make_shared<Expr>(Expr { 0, "x" });
 	d->pes.push_back(
-			make_pair(vector<string> { "False" }, make_shared<Expr>(Expr { 0,
-					"True" })));
+			make_pair(vector<string> { "false" }, make_shared<Expr>(Expr { 0,
+					"true" })));
 	d->pes.push_back(
-			make_pair(vector<string> { "True" }, make_shared<Expr>(Expr { 0,
-					"False" })));
+			make_pair(vector<string> { "true" }, make_shared<Expr>(Expr { 0,
+					"false" })));
 
 	return make_pair(data, expr);
 }
@@ -540,7 +554,7 @@ void codegen(
 			}
 			auto t2 = t1->tau;
 			int &j = cl[c.first];
-			while (t2->T == 2 && t2->D == "->") {
+			while (t2->T == 1 && t2->D == "->") {
 				d << "d" << j;
 				j++;
 				t2 = t2->tau[1];
