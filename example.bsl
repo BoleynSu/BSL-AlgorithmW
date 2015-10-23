@@ -1,11 +1,11 @@
 data int where {
   zero::int;
-  suc::int->int;
+  suc::int->int
 }
 
 data bool where {
   false::bool;
-  true::bool;
+  true::bool
 }
 
 data T a where {
@@ -15,14 +15,14 @@ data T a where {
   E::T int->T int->T bool
 }
 
-let add = \a -> \b ->
+rec add = \a -> \b ->
   case a of {
     zero -> b;
     suc c -> suc (add c b)
   }
 in
 
-let eq = \a -> \b ->
+rec eq = \a -> \b ->
   case a of {
     zero ->
       case b of {
@@ -37,7 +37,7 @@ let eq = \a -> \b ->
   }
 in
 
-let eval = \x ->
+rec eval = \x ->
   case x of {
     I i -> i;
     B b -> b;
