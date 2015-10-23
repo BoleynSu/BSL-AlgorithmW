@@ -546,14 +546,13 @@ pair<shared_ptr<map<string, shared_ptr<Data> > >, shared_ptr<Expr> > parse() {
 																			"term",
 																			vector<
 																					shared_ptr<
-																							Mono> >(
-																					{
-																							make_shared<
-																									Mono>(
-																									Mono {
-																											1,
-																											nullptr,
-																											"int" }) }) }) } }) })));
+																							Mono> > {
+																					make_shared<
+																							Mono>(
+																							Mono {
+																									1,
+																									nullptr,
+																									"int" }) } }) } }) })));
 	term->constructors.push_back(
 			make_pair("bool_term",
 					make_shared<Poly>(
@@ -571,16 +570,28 @@ pair<shared_ptr<map<string, shared_ptr<Data> > >, shared_ptr<Expr> > parse() {
 																			"term",
 																			vector<
 																					shared_ptr<
-																							Mono> >(
-																					{
-																							make_shared<
-																									Mono>(
-																									Mono {
-																											1,
-																											nullptr,
-																											"bool" }) }) }) } }) })));
+																							Mono> > {
+																					make_shared<
+																							Mono>(
+																							Mono {
+																									1,
+																									nullptr,
+																									"bool" }) } }) } }) })));
 	(*data)[term->name] = term;
-//data pair a b where pair::a->term int ; bool_term::bool->term bool
+//data pair a b where pair::a->b->pair a b
+	auto pair = make_shared<Data>(Data { "pair" });
+	auto a = newvar(), b = newvar();
+	auto t2 = make_shared<Mono>(
+			Mono { 1, nullptr, "pair", vector<shared_ptr<Mono> > { a, b } });
+	auto t1 = make_shared<Mono>(Mono { 1, nullptr, "->",
+			vector<shared_ptr<Mono> > { b, t2 } });
+	auto pairmono = make_shared<Mono>(
+			Mono { 1, nullptr, "->", vector<shared_ptr<Mono> > { a, t1 } });
+	auto pairpoly = make_shared<Poly>(
+			Poly { 1, nullptr, a, make_shared<Poly>(Poly { 1, nullptr, b,
+					make_shared<Poly>(Poly { 0, pairmono }) }) });
+	pair->constructors.push_back(make_pair("pair", pairpoly));
+	(*data)[pair->name] = pair;
 
 //	(\x->(case x of {false->true;true->false}))
 //	auto expr = make_shared<Expr>();
@@ -596,20 +607,32 @@ pair<shared_ptr<map<string, shared_ptr<Data> > >, shared_ptr<Expr> > parse() {
 //			make_pair(vector<string> { "true" }, make_shared<Expr>(Expr { 0,
 //						"false" })));
 
-//	(\x->(case x of {int_term a->a;bool_term a->a}))
+//(\y->(case y of {pair a b->(\x->(case x of {int_term a->a;bool_term a->a})) (a)}))
+	auto expr1 = make_shared<Expr>();
+	{
+		expr1->T = 2;
+		expr1->x = "x";
+		auto d = expr1->e = make_shared<Expr>();
+		d->T = 5;
+		d->e = make_shared<Expr>(Expr { 0, "x" });
+		d->pes.push_back(
+				make_pair(vector<string> { "int_term", "a" },
+						make_shared<Expr>(Expr { 0, "a" })));
+		d->pes.push_back(
+				make_pair(vector<string> { "bool_term", "a" },
+						make_shared<Expr>(Expr { 0, "a" })));
+	}
 	auto expr = make_shared<Expr>();
 	expr->T = 2;
-	expr->x = "x";
+	expr->x = "y";
 	auto d = expr->e = make_shared<Expr>();
 	d->T = 5;
-	d->e = make_shared<Expr>(Expr { 0, "x" });
+	d->e = make_shared<Expr>(Expr { 0, "y" });
 	d->pes.push_back(
-			make_pair(vector<string> { "int_term", "a" },
-					make_shared<Expr>(Expr { 0, "a" })));
-	d->pes.push_back(
-			make_pair(vector<string> { "bool_term", "a" },
-					make_shared<Expr>(Expr { 0, "a" })));
-
+			make_pair(vector<string> { "pair", "a", "b" },
+					make_shared<Expr>(
+							Expr { 1, "", expr1, make_shared<Expr>(
+									Expr { 0, "a" }) })));
 	return make_pair(data, expr);
 }
 
@@ -678,8 +701,10 @@ void codegen(
 	stringstream c;
 	expr->infer(make_shared<map<string, shared_ptr<Poly> > >(), cl);
 	cout << "#include <functional>" << endl << "using std::function;" << endl
-			<< "//" << expr->to_string() << " :: " << to_string(expr->type)
-			<< endl;
+			<< "//" << expr->to_string() << " :: "
+			<< to_string(
+					gen(make_shared<map<string, shared_ptr<Poly> > >(),
+							expr->type)) << endl;
 	expr->codegen(c, ci);
 	cout << "int main() { " << c.str() << "; }" << endl;
 }
