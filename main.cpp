@@ -586,7 +586,7 @@ void codegen(
 			auto cur = lam;
 			for (int j = 0; j < cl[c.first]; j++) {
 				stringstream s;
-				s << "$v_bsl_" << j;
+				s << j;
 				cur->T = 2;
 				cur->x = s.str();
 				cur->e = make_shared<Expr>();
