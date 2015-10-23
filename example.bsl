@@ -16,34 +16,46 @@ data T a where {
 }
 
 data IO a where {
-  Data::a->IO a;
-  Read::(Int->IO a)->IO a;
-  Write::Int->IO a->IO a
+  Data::forall a.a->IO a;
+  Read::forall a.(Int->IO a)->IO a;
+  Write::forall a.Int->IO a->IO a
 }
 
-let bind = \x -> \f ->
+rec bind = \x -> \f ->
   case x of {
     Data x -> f x;
-    Read g -> Read (\x -> f (g x));
-    Write c x -> Write c (f x)
+    Read g -> Read (\x -> bind (g x) f);
+    Write c x -> Write c (bind x f)
   }
 in
 
 let return = Data
 in
 
-let getChar = Read (\x -> Data x)
+let getInt = Read (\x -> Data x)
 in
 
-let putChar = \x -> Write x (Data Zero)
+let putInt = \x -> Write x (Data Zero)
 in
 
 rec runIO = \x ->
   case x of {
     Data x -> x;
-    Read g -> runIO (g $getchar()$);
+    Read g -> runIO (g ffi ffiblock [=]() -> void* { return $v_bsl_Zero; }() ffiblock);
     Write c x -> (\x -> \y -> y)
-                 $[=]() -> void* { putchar($v_bsl_c); }()$
+                 ffi ffiblock [=](void* x) -> void* {
+                   int v = 0;
+                   for (;;) {
+                     $t_bsl_Int * i = ($t_bsl_Int *) x;
+                     if (i->T == 0) {
+                       break;
+                     }
+                     v++;
+                     x = (($d_bsl_Suc*) (i->ptr))->d0;
+                   }
+                   printf("%d\n", v);
+                   return $v_bsl_Zero;
+                 }($v_bsl_c) ffiblock
                  (runIO x)
   }
 in
@@ -77,5 +89,5 @@ rec eval = \x ->
     A a b -> add (eval a) (eval b);
     E a b -> eq (eval a) (eval b)
   }
-in runIO (putChar (eval (let four = let two = let one = I (Suc Zero) in A one one in A two two in four)));
+in runIO (putInt (eval (let four = let two = let one = I (Suc Zero) in A one one in A two two in four)))
 
