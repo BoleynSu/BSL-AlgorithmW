@@ -48,7 +48,7 @@ rec runIO :: forall a.IO a->Int = \x ->
     Read g -> let x = ffi ` [=]() -> void* { int *x = new int; if (scanf("%d", x) == 1) return (*((function<void*(void*)>*)$v_bsl_Just))(x); else return $v_bsl_Nothing; }() `
               in case x of {
                 Just x -> runIO (g x);
-                Nothing -> ffi ` new int(-1) `
+                Nothing -> runIO (g ffi ` new int(-1) `)
               };
     Write c x -> let _ = ffi ` (printf("%d\n", *((int*)$v_bsl_c)), (void*)0) ` in (runIO x)
   }
