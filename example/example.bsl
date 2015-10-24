@@ -36,27 +36,25 @@ rec runIO = \x ->
   case x of {
     Data x -> x;
     Read g -> runIO (g ffi ` [=]() -> void* { int *x = new int; scanf("%d", x); return x; }() `);
-    Write c x -> let x = (runIO x) in
-                 let y = ffi ` (printf("%d\n", *((int*)$v_bsl_c)),(void*)0) ` in
-                 x
+    Write c x -> let _ = ffi ` (printf("%d\n", *((int*)$v_bsl_c)), (void*)0) ` in (runIO x)
   }
 in
 
-let add :: Int->Int->Int = \a -> \b -> ffi ` new int((*(int*)$v_bsl_a)+(*(int*)$v_bsl_b)) `
+let add :: Int->Int->Int = \a -> \b -> ffi ` new int((*(int*)$v_bsl_a) + (*(int*)$v_bsl_b)) `
 in
 
 let neg :: Int->Int = \a -> ffi ` new int(-(*(int*)$v_bsl_a)) `
 in
 
-let sub :: Int->Int->Int = \a -> \b -> ffi ` new int((*(int*)$v_bsl_a)-(*(int*)$v_bsl_b)) `
+let sub :: Int->Int->Int = \a -> \b -> ffi ` new int((*(int*)$v_bsl_a) - (*(int*)$v_bsl_b)) `
 in
 
-let mul :: Int->Int->Int = \a -> \b -> ffi ` new int((*(int*)$v_bsl_a)*(*(int*)$v_bsl_b)) `
+let mul :: Int->Int->Int = \a -> \b -> ffi ` new int((*(int*)$v_bsl_a) * (*(int*)$v_bsl_b)) `
 in
 
 let div :: Int->Int->Pair Int Int = \a -> \b ->
-let x :: Int = ffi ` new int((*(int*)$v_bsl_a)/(*(int*)$v_bsl_b)) ` in
-let y :: Int = ffi ` new int((*(int*)$v_bsl_a)%(*(int*)$v_bsl_b)) ` in
+let x :: Int = ffi ` new int((*(int*)$v_bsl_a) / (*(int*)$v_bsl_b)) ` in
+let y :: Int = ffi ` new int((*(int*)$v_bsl_a) % (*(int*)$v_bsl_b)) ` in
 (Pair x y)
 in
 
@@ -78,7 +76,7 @@ getInt \x -> bind
 echo
 in
 
-runIO ( bind
+runIO (bind
 getInt \x -> bind
 (putInt x) \_ -> bind
 getInt \y -> bind
