@@ -14,6 +14,11 @@ data Maybe a where {
   Nothing::forall a.Maybe a
 }
 
+data List a where {
+  Nil::forall a.List a;
+  Con::forall a.a->List a->List a
+}
+
 data IO a where {
   Data::forall a.a->IO a;
   Read::forall a.(Int->IO a)->IO a;
