@@ -131,12 +131,12 @@ struct Codegener {
 				auto t2 = t1->tau;
 				int &j = cl[c.first];
 				while (t2->T == 1 && t2->D == "->") {
-					out << "void* " << "d" << j << "; ";
+					out << " void* " << "d" << j << ";";
 					j++;
 					t2 = t2->tau[1];
 				}
 				ci[c.first] = i;
-				out << "};" << endl;
+				out << " };" << endl;
 			}
 		}
 
