@@ -114,62 +114,75 @@ struct Codegener {
 		auto data = prog.first;
 		auto expr = prog.second;
 
-		out << "#include <functional>" << endl << "#include <cstdio>"
-				<< endl << "using std::function;" << endl;
+		out << "#include <functional>" << endl << "#include <cstdio>" << endl
+				<< "using std::function;" << endl;
 		map<string, int> cl, ci;
 		for (auto dai : *data) {
 			auto da = dai.second;
-			out << "struct $t_bsl_" << da->name << " { int T; void* ptr; };"
-					<< endl;
-			for (int i = 0; i < da->constructors.size(); i++) {
-				auto c = da->constructors[i];
-				out << "struct $d_bsl_" << c.first << " {";
-				auto t1 = c.second;
-				while (t1->T == 1) {
-					t1 = t1->sigma;
+			switch (da->T) {
+			case 0: {
+				out << "struct $t_bsl_" << da->name << " { int T; void* ptr; };"
+						<< endl;
+				for (int i = 0; i < da->constructors.size(); i++) {
+					auto c = da->constructors[i];
+					out << "struct $d_bsl_" << c.first << " {";
+					auto t1 = c.second;
+					while (t1->T == 1) {
+						t1 = t1->sigma;
+					}
+					auto t2 = t1->tau;
+					int &j = cl[c.first];
+					while (t2->T == 1 && t2->D == "->") {
+						out << "void* " << "d" << j << "; ";
+						j++;
+						t2 = t2->tau[1];
+					}
+					ci[c.first] = i;
+					out << "};" << endl;
 				}
-				auto t2 = t1->tau;
-				int &j = cl[c.first];
-				while (t2->T == 1 && t2->D == "->") {
-					out << " void* " << "d" << j << ";";
-					j++;
-					t2 = t2->tau[1];
-				}
-				ci[c.first] = i;
-				out << " };" << endl;
+				break;
+			}
+			case 1: {
+				out << "typedef " << da->ffi << " $t_bsl_" << da->name << ";"
+						<< endl;
+				break;
+			}
 			}
 		}
 
 		for (auto dai : *data) {
 			auto da = dai.second;
-			for (int i = 0; i < da->constructors.size(); i++) {
-				auto c = da->constructors[i];
-				auto e = make_shared<Expr>();
-				e->T = 3;
-				e->x = c.first;
-				auto lam = make_shared<Expr>();
-				auto cur = lam;
-				for (int j = 0; j < cl[c.first]; j++) {
+			if (da->T == 0) {
+				for (int i = 0; i < da->constructors.size(); i++) {
+					auto c = da->constructors[i];
+					auto e = make_shared<Expr>();
+					e->T = 3;
+					e->x = c.first;
+					auto lam = make_shared<Expr>();
+					auto cur = lam;
+					for (int j = 0; j < cl[c.first]; j++) {
+						stringstream s;
+						s << j;
+						cur->T = 2;
+						cur->x = s.str();
+						cur->e = make_shared<Expr>();
+						cur = cur->e;
+					}
 					stringstream s;
-					s << j;
-					cur->T = 2;
-					cur->x = s.str();
-					cur->e = make_shared<Expr>();
-					cur = cur->e;
+					s << "new " << "$t_bsl_" << da->name << " { " << i
+							<< ", new " << "$d_bsl_" << c.first << "{";
+					for (int j = 0; j < cl[c.first]; j++) {
+						s << " $v_bsl_" << j
+								<< (j + 1 == cl[c.first] ? "" : ",");
+					}
+					s << " } }";
+					cur->T = 6;
+					cur->ffi = s.str();
+					e->e1 = lam;
+					e->e1->sig = c.second;
+					e->e2 = expr;
+					expr = e;
 				}
-				stringstream s;
-				s << "new " << "$t_bsl_" << da->name << " { " << i << ", new "
-						<< "$d_bsl_" << c.first << "{";
-				for (int j = 0; j < cl[c.first]; j++) {
-					s << " $v_bsl_" << j << (j + 1 == cl[c.first] ? "" : ",");
-				}
-				s << " } }";
-				cur->T = 6;
-				cur->ffi = s.str();
-				e->e1 = lam;
-				e->e1->sig = c.second;
-				e->e2 = expr;
-				expr = e;
 			}
 		}
 		stringstream c;

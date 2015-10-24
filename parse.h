@@ -127,10 +127,24 @@ struct Parser {
 		while (!accept(WHERE)) {
 			expect(IDENTIFIER);
 		}
-		expect(LEFT_BRACE);
-		while (!accept(RIGHT_BRACE)) {
-			d->constructors.push_back(parse_constructor());
-			accept(SEMICOLON);
+		if (accept(LEFT_BRACE)) {
+			d->T = 0;
+			while (!accept(RIGHT_BRACE)) {
+				d->constructors.push_back(parse_constructor());
+				accept(SEMICOLON);
+			}
+		} else {
+			expect(FFI);
+			d->T = 1;
+			stringstream s(t.data);
+			s.get();
+			s.get();
+			s.get();
+			string sep;
+			s >> sep;
+			int a = t.data.find(sep);
+			d->ffi = t.data.substr(a + sep.size(),
+					t.data.size() - (a + 2 * sep.size()));
 		}
 		return d;
 	}
@@ -202,11 +216,10 @@ struct Parser {
 			expect(LEFT_BRACE);
 			while (!match(RIGHT_BRACE)) {
 				expr->pes.push_back(make_pair(vector<string> { }, nullptr));
-				while (!match(RIGHTARROW)) {
+				do {
 					expect(IDENTIFIER);
 					expr->pes.back().first.push_back(t.data);
-				}
-				expect(RIGHTARROW);
+				} while (!accept(RIGHTARROW));
 				expr->pes.back().second = parse_expr();
 				accept(SEMICOLON);
 			}
@@ -240,11 +253,10 @@ struct Parser {
 				expect(LEFT_BRACE);
 				while (!match(RIGHT_BRACE)) {
 					expr->pes.push_back(make_pair(vector<string> { }, nullptr));
-					while (!match(RIGHTARROW)) {
+					do {
 						expect(IDENTIFIER);
 						expr->pes.back().first.push_back(t.data);
-					}
-					expect(RIGHTARROW);
+					} while (!accept(RIGHTARROW));
 					expr->pes.back().second = parse_expr();
 					accept(SEMICOLON);
 				}

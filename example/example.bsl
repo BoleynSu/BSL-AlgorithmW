@@ -1,4 +1,4 @@
-data Int where {}
+data Int where ffi ` int `
 
 data Bool where {
   False::Bool;
@@ -89,6 +89,17 @@ rec echo = bind getInt \x -> case eq0 x of {
   True -> return x
 }
 in
+
+rec loop = Con getInt loop
+in
+
+rec recint = add recint ffi ` new int(1) `
+in
+
+rec print = \x -> case x of {
+  Nil -> return Nothing;
+  Con x xs -> return Nothing
+} in
 
 runIO (bind
 getInt \x -> bind
