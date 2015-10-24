@@ -37,7 +37,7 @@ in
 let putInt :: Int->IO Int= \x -> Write x (Data ffi ` new int(0) `)
 in
 
-rec runIO :: IO a->Int = \x ->
+rec runIO :: forall a.IO a->Int = \x ->
   case x of {
     Data x -> ffi ` new int(0) `;
     Read g -> let x = ffi ` [=]() -> void* { int *x = new int; if (scanf("%d", x) == 1) return (*((function<void*(void*)>*)$v_bsl_Just))(x); else return $v_bsl_Nothing; }() `
@@ -79,10 +79,10 @@ rec gcd = \a -> \b ->
   }
 in
 
-rec echo = bind
-getInt \x -> bind
-(putInt x) \_ ->
-echo
+rec echo = bind getInt \x -> case eq0 x of {
+  False -> bind (putInt x) \_ -> echo;
+  True -> return x
+}
 in
 
 runIO (bind
