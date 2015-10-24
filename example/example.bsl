@@ -9,6 +9,11 @@ data Pair a b where {
   Pair::forall a.forall b.a->b->Pair a b
 }
 
+data Maybe a where {
+  Just::forall a.a->Maybe a;
+  Nothing::forall a.Maybe a
+}
+
 data IO a where {
   Data::forall a.a->IO a;
   Read::forall a.(Int->IO a)->IO a;
@@ -32,10 +37,14 @@ in
 let putInt :: Int->IO Int= \x -> Write x (Data ffi ` new int(0) `)
 in
 
-rec runIO = \x ->
+rec runIO :: IO a->Int = \x ->
   case x of {
-    Data x -> x;
-    Read g -> runIO (g ffi ` [=]() -> void* { int *x = new int; scanf("%d", x); return x; }() `);
+    Data x -> ffi ` new int(0) `;
+    Read g -> let x = ffi ` [=]() -> void* { int *x = new int; if (scanf("%d", x) == 1) return (*((function<void*(void*)>*)$v_bsl_Just))(x); else return $v_bsl_Nothing; }() `
+              in case x of {
+                Just x -> runIO (g x);
+                Nothing -> ffi ` new int(-1) `
+              };
     Write c x -> let _ = ffi ` (printf("%d\n", *((int*)$v_bsl_c)), (void*)0) ` in (runIO x)
   }
 in
