@@ -77,24 +77,26 @@ struct Parser {
 			mo = parse_monotype(m);
 			expect(RIGHT_PARENTHESIS);
 		}
-		auto t1 = mo;
-		while (match(IDENTIFIER) || match(LEFT_PARENTHESIS)) {
-			if (accept(IDENTIFIER)) {
-				if (m.count(t.data)) {
-					mo = m[t.data];
+		if (mo->T == 1 && mo->D != "->") {
+			auto t1 = mo;
+			while (match(IDENTIFIER) || match(LEFT_PARENTHESIS)) {
+				if (accept(IDENTIFIER)) {
+					if (m.count(t.data)) {
+						mo = m[t.data];
+					} else {
+						mo = make_shared<Mono>();
+						mo->T = 1;
+						mo->D = t.data;
+					}
 				} else {
-					mo = make_shared<Mono>();
-					mo->T = 1;
-					mo->D = t.data;
+					expect(LEFT_PARENTHESIS);
+					mo = parse_monotype(m);
+					expect(RIGHT_PARENTHESIS);
 				}
-			} else {
-				expect(LEFT_PARENTHESIS);
-				mo = parse_monotype(m);
-				expect(RIGHT_PARENTHESIS);
+				t1->tau.push_back(mo);
 			}
-			t1->tau.push_back(mo);
+			mo = t1;
 		}
-		mo = t1;
 		return mo;
 	}
 
