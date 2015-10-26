@@ -76,15 +76,9 @@ let sort = \less ->
   } in sortLess
 in
 
-let getList = bind getInt \x -> case x of { 
-  Just x -> rec f = \x -> case let zero::Int = ffi ` new int(0)` in not (less zero x) of {
-    True -> return Nil;
-    False -> bind getInt \y -> case y of {
-      Just y -> bind (f (sub x ffi ` new int(1) `)) \ys ->
-                return (Cons y ys);
-      Nothing -> return Nil
-    }
-  } in f x;
+rec getList = bind getInt \x -> case x of {
+  Just x -> bind getList \xs ->
+            return (Cons x xs);
   Nothing -> return Nil
 } in
 rec putList = \list -> case list of {
