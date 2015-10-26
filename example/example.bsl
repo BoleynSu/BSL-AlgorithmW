@@ -44,7 +44,7 @@ let neg::Int->Int = \a -> ffi ` new int(-(*(int*)$v_bsl_a)) ` in
 let sub::Int->Int->Int = \a -> \b -> ffi ` new int((*(int*)$v_bsl_a) - (*(int*)$v_bsl_b)) ` in
 let mul::Int->Int->Int = \a -> \b -> ffi ` new int((*(int*)$v_bsl_a) * (*(int*)$v_bsl_b)) ` in
 let div::Int->Int->Int = \a -> \b -> ffi ` new int((*(int*)$v_bsl_a) / (*(int*)$v_bsl_b)) ` in
-let mod::Int->Int->Int = \a -> \b -> ffi ` new int((*(int*)$v_bsl_a) / (*(int*)$v_bsl_b)) ` in
+let mod::Int->Int->Int = \a -> \b -> ffi ` new int((*(int*)$v_bsl_a) % (*(int*)$v_bsl_b)) ` in
 let eq0::Int->Bool = \a -> ffi ` new $t_bsl_Bool{ (*(int*)$v_bsl_a) == 0 } ` in
 let less::Int->Int->Bool = \a -> \b -> ffi ` new $t_bsl_Bool{ (*(int*)$v_bsl_a) < (*(int*)$v_bsl_b) } ` in
 rec gcd = \a -> \b -> case eq0 a of {
