@@ -66,19 +66,14 @@ struct Codegener {
 				auto t = find(expr->xes[i].second->type);
 				out << " { void* $tmp_bsl_tmp = ";
 				codegen(expr->xes[i].second, ci);
-				out << "; *((";
+				out << "; memcpy($v_bsl_" << expr->xes[i].first
+						<< ", $tmp_bsl_tmp, sizeof (";
 				if (t->D == "->") {
 					out << "function<void*(void*)>";
 				} else {
 					out << "$t_bsl_" << t->D;
 				}
-				out << "*)$v_bsl_" << expr->xes[i].first << ") = *((";
-				if (t->D == "->") {
-					out << "function<void*(void*)>";
-				} else {
-					out << "$t_bsl_" << t->D;
-				}
-				out << "*)$tmp_bsl_tmp); }";
+				out << ")); }";
 			}
 			out << " return ";
 			codegen(expr->e, ci);
@@ -115,7 +110,8 @@ struct Codegener {
 		auto expr = prog.second;
 
 		out << "#include <functional>" << endl << "#include <cstdio>" << endl
-				<< "using std::function;" << endl;
+				<< "#include <cstring>" << endl << "using std::function;"
+				<< endl;
 		map<string, int> cl, ci;
 		for (auto dai : *data) {
 			auto da = dai.second;
