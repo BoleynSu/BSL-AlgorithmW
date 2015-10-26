@@ -30,7 +30,7 @@ rec runIO::forall a.IO a->a = \x -> case x of {
   Return x -> x;
   Bind x f -> case x of {
     Return x -> runIO (f x);
-    Bind y g -> runIO (f (runIO (Bind y g)));
+    Bind y g -> runIO (f (runIO x));
     Read g -> runIO (Read (\x -> Bind (g x) f));
     Write c x -> runIO (Write c (Bind x f))
   };
