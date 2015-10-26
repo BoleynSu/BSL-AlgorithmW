@@ -24,15 +24,15 @@ data IO a where {
 
 let return = Return in
 let bind = Bind in
-let getInt = Read (\x -> Return x) in
-let putInt = \x -> Write x (Return let y::Int = ffi ` new int(0) ` in y) in
+let getInt = Read (\x -> return x) in
+let putInt = \x -> Write x (return Nothing) in
 rec runIO::forall a.IO a->a = \x -> case x of {
   Return x -> x;
   Bind x f -> case x of {
     Return x -> runIO (f x);
     Bind y g -> runIO (f (runIO x));
-    Read g -> runIO (Read (\x -> Bind (g x) f));
-    Write c x -> runIO (Write c (Bind x f))
+    Read g -> runIO (Read (\x -> bind (g x) f));
+    Write c x -> runIO (Write c (bind x f))
   };
   Read g -> let x::Maybe Int = ffi ` [=]() -> void* { int *x = new int; if (std::scanf("%d", x) == 1) return (*((std::function<void*(void*)>*)$v_bsl_Just))(x); else return $v_bsl_Nothing; }() `
             in runIO (g x);
