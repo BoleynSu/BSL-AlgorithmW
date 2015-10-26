@@ -25,7 +25,7 @@ data IO a where {
 let return = Return in
 let bind = Bind in
 let getInt = Read (\x -> Return x) in
-let putInt::Int->IO Int = \x -> Write x (Return ffi ` new int(0) `) in
+let putInt = \x -> Write x (Return let y::Int = ffi ` new int(0) ` in y) in
 rec runIO::forall a.IO a->a = \x -> case x of {
   Return x -> x;
   Bind x f -> case x of {
