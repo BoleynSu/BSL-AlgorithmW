@@ -23,14 +23,14 @@ struct Codegener {
 			out << "$v_bsl_" << expr->x;
 			return;
 		case 1:
-			out << "(*((function<void*(void*)>*)(";
+			out << "(*((std::function<void*(void*)>*)(";
 			codegen(expr->e1, ci);
 			out << ")))(";
 			codegen(expr->e2, ci);
 			out << ")";
 			return;
 		case 2:
-			out << "new function<void*(void*)>([=](void* " << "$v_bsl_"
+			out << "new std::function<void*(void*)>([=](void* " << "$v_bsl_"
 					<< expr->x << ") -> void* { return ";
 			codegen(expr->e, ci);
 			out << "; })";
@@ -52,7 +52,7 @@ struct Codegener {
 					out << (i ? ", " : " ") << "$v_bsl_" << expr->xes[i].first
 							<< " = new ";
 					if (t->D == "->") {
-						out << "function<void*(void*)>";
+						out << "std::function<void*(void*)>";
 					} else {
 						out << "$t_bsl_" << t->D;
 					}
@@ -66,10 +66,10 @@ struct Codegener {
 				auto t = find(expr->xes[i].second->type);
 				out << " { void* $tmp_bsl_tmp = ";
 				codegen(expr->xes[i].second, ci);
-				out << "; memcpy($v_bsl_" << expr->xes[i].first
+				out << "; std::memcpy($v_bsl_" << expr->xes[i].first
 						<< ", $tmp_bsl_tmp, sizeof (";
 				if (t->D == "->") {
-					out << "function<void*(void*)>";
+					out << "std::function<void*(void*)>";
 				} else {
 					out << "$t_bsl_" << t->D;
 				}
@@ -109,9 +109,17 @@ struct Codegener {
 		auto data = prog.first;
 		auto expr = prog.second;
 
-		out << "#include <functional>" << endl << "#include <cstdio>" << endl
-				<< "#include <cstring>" << endl << "using std::function;"
-				<< endl;
+		out << "#include <cstddef>" << endl << "#include <cstdio>" << endl
+				<< "#include <cstdlib>" << endl << "#include <cstring>" << endl
+				<< "#include <functional>" << endl
+				<< "void *operator new(std::size_t sz) { "
+						"static char *b, *e; "
+						"if (b + sz > e) { "
+						"b = (char *) std::malloc(sz > (1 << 20) ? sz : (1 << 20)); "
+						"e = b + (sz > (1 << 20) ? sz : (1 << 20)); "
+						"} "
+						"return e -= sz; "
+						"}" << endl;
 		map<string, int> cl, ci;
 		for (auto dai : *data) {
 			auto da = dai.second;

@@ -34,9 +34,9 @@ rec runIO::forall a.IO a->a = \x -> case x of {
     Read g -> runIO (Read (\x -> Bind (g x) f));
     Write c x -> runIO (Write c (Bind x f))
   };
-  Read g -> let x::Maybe Int = ffi ` [=]() -> void* { int *x = new int; if (scanf("%d", x) == 1) return (*((function<void*(void*)>*)$v_bsl_Just))(x); else return $v_bsl_Nothing; }() `
+  Read g -> let x::Maybe Int = ffi ` [=]() -> void* { int *x = new int; if (std::scanf("%d", x) == 1) return (*((std::function<void*(void*)>*)$v_bsl_Just))(x); else return $v_bsl_Nothing; }() `
             in runIO (g x);
-  Write c x -> let _ = ffi ` (printf("%d\n", *((int*)$v_bsl_c)), (void*)0) ` in (runIO x)
+  Write c x -> let _ = ffi ` (std::printf("%d\n", *((int*)$v_bsl_c)), (void*)0) ` in (runIO x)
 } in
 
 let add::Int->Int->Int = \a -> \b -> ffi ` new int((*(int*)$v_bsl_a) + (*(int*)$v_bsl_b)) ` in
