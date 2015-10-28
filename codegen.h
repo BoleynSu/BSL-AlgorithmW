@@ -36,7 +36,7 @@ struct Codegener {
 			out << "; })";
 			return;
 		case 3:
-			out << "[&]() -> void* { void* " << "$tmp_bsl_tmp" << " = ";
+			out << "[=]() -> void* { void* " << "$tmp_bsl_tmp" << " = ";
 			codegen(expr->e1);
 			out << ";  void* " << "$v_bsl_" << expr->x
 					<< " = $tmp_bsl_tmp; return ";
@@ -44,7 +44,7 @@ struct Codegener {
 			out << "; } ()";
 			return;
 		case 4: //TODO FIXME
-			out << "[&]() -> void* {";
+			out << "[=]() -> void* {";
 			out << " void*";
 			for (int i = 0; i < expr->xes.size(); i++) {
 				auto t = find(expr->xes[i].second->type);
@@ -80,7 +80,7 @@ struct Codegener {
 			out << "; } ()";
 			return;
 		case 5:
-			out << "[&]() -> void* { void* $tmp_bsl_tmp = ";
+			out << "[=]() -> void* { void* $tmp_bsl_tmp = ";
 			codegen(expr->e);
 			out << "; switch ((($t_bsl_" << find(expr->e->type)->D
 					<< "*)($tmp_bsl_tmp))->T) {";
