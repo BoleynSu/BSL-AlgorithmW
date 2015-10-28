@@ -17,30 +17,30 @@ using namespace std;
 struct Codegener {
 	ostream& out;
 
-	void codegen(shared_ptr<Expr> expr, map<string, int>& ci) {
+	void codegen(shared_ptr<Expr> expr) {
 		switch (expr->T) {
 		case 0:
 			out << "$v_bsl_" << expr->x;
 			return;
 		case 1:
 			out << "(*((std::function<void*(void*)>*)(";
-			codegen(expr->e1, ci);
+			codegen(expr->e1);
 			out << ")))(";
-			codegen(expr->e2, ci);
+			codegen(expr->e2);
 			out << ")";
 			return;
 		case 2:
 			out << "new std::function<void*(void*)>([=](void* " << "$v_bsl_"
 					<< expr->x << ") -> void* { return ";
-			codegen(expr->e, ci);
+			codegen(expr->e);
 			out << "; })";
 			return;
 		case 3:
 			out << "[=]() -> void* { void* " << "$tmp_bsl_tmp" << " = ";
-			codegen(expr->e1, ci);
+			codegen(expr->e1);
 			out << ";  void* " << "$v_bsl_" << expr->x
 					<< " = $tmp_bsl_tmp; return ";
-			codegen(expr->e2, ci);
+			codegen(expr->e2);
 			out << "; } ()";
 			return;
 		case 4: //TODO FIXME
@@ -65,7 +65,7 @@ struct Codegener {
 			for (int i = 0; i < expr->xes.size(); i++) {
 				auto t = find(expr->xes[i].second->type);
 				out << " { void* $tmp_bsl_tmp = ";
-				codegen(expr->xes[i].second, ci);
+				codegen(expr->xes[i].second);
 				out << "; std::memcpy($v_bsl_" << expr->xes[i].first
 						<< ", $tmp_bsl_tmp, sizeof (";
 				if (t->D == "->") {
@@ -76,16 +76,17 @@ struct Codegener {
 				out << ")); }";
 			}
 			out << " return ";
-			codegen(expr->e, ci);
+			codegen(expr->e);
 			out << "; } ()";
 			return;
 		case 5:
 			out << "[=]() -> void* { void* $tmp_bsl_tmp = ";
-			codegen(expr->e, ci);
+			codegen(expr->e);
 			out << "; switch ((($t_bsl_" << find(expr->e->type)->D
 					<< "*)($tmp_bsl_tmp))->T) {";
 			for (int i = 0; i < expr->pes.size(); i++) {
-				out << "case " << ci[expr->pes[i].first[0]] << ": {";
+				out << "case $t_bsl_" << find(expr->e->type)->D << "::$e_bsl_"
+						<< expr->pes[i].first[0] << ": {";
 				for (int j = 1; j < expr->pes[i].first.size(); j++) {
 					out << "void* " << "$v_bsl_" << expr->pes[i].first[j]
 							<< " = (($d_bsl_" << expr->pes[i].first[0]
@@ -93,7 +94,7 @@ struct Codegener {
 							<< "*)($tmp_bsl_tmp))->ptr))->d" << j - 1 << ";";
 				}
 				out << " return ";
-				codegen(expr->pes[i].second, ci);
+				codegen(expr->pes[i].second);
 				out << "; }";
 			}
 			out << "} }()";
@@ -120,13 +121,17 @@ struct Codegener {
 						"} "
 						"return e -= sz; "
 						"}" << endl;
-		map<string, int> cl, ci;
+		map<string, int> cl;
 		for (auto dai : *data) {
 			auto da = dai.second;
 			switch (da->T) {
 			case 0: {
-				out << "struct $t_bsl_" << da->name << " { int T; void* ptr; };"
-						<< endl;
+				out << "struct $t_bsl_" << da->name << " { enum {";
+				for (int i = 0; i < da->constructors.size(); i++) {
+					auto c = da->constructors[i];
+					out << (i ? ", " : " ") << "$e_bsl_" << c.first;
+				}
+				out << " } T; void* ptr; };" << endl;
 				for (int i = 0; i < da->constructors.size(); i++) {
 					auto c = da->constructors[i];
 					out << "struct $d_bsl_" << c.first << " {";
@@ -141,7 +146,6 @@ struct Codegener {
 						j++;
 						t2 = t2->tau[1];
 					}
-					ci[c.first] = i;
 					out << " };" << endl;
 				}
 				break;
@@ -173,8 +177,9 @@ struct Codegener {
 						cur = cur->e;
 					}
 					stringstream s;
-					s << "new " << "$t_bsl_" << da->name << " { " << i
-							<< ", new " << "$d_bsl_" << c.first << "{";
+					s << "new " << "$t_bsl_" << da->name << " { " << "$t_bsl_"
+							<< da->name << "::$e_bsl_" << c.first << ", new "
+							<< "$d_bsl_" << c.first << "{";
 					for (int j = 0; j < cl[c.first]; j++) {
 						s << " $v_bsl_" << j
 								<< (j + 1 == cl[c.first] ? "" : ",");
@@ -192,7 +197,7 @@ struct Codegener {
 		stringstream c;
 		infer(expr, make_shared<map<string, shared_ptr<Poly> > >(), cl);
 		out << "int main() { ";
-		codegen(expr, ci);
+		codegen(expr);
 		out << "; }" << endl;
 	}
 };
