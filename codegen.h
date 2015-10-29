@@ -83,7 +83,7 @@ struct Codegener {
 			out << "[=]() -> void* { void* $tmp_bsl_tmp = ";
 			codegen(expr->e);
 			out << "; switch ((($t_bsl_" << find(expr->e->type)->D
-					<< "*)($tmp_bsl_tmp))->T) {";
+					<< "*)($tmp_bsl_tmp))->T) { ";
 			for (int i = 0; i < expr->pes.size(); i++) {
 				out << "case $t_bsl_" << find(expr->e->type)->D << "::$e_bsl_"
 						<< expr->pes[i].first[0] << ": {";
@@ -95,7 +95,7 @@ struct Codegener {
 				}
 				out << " return ";
 				codegen(expr->pes[i].second);
-				out << "; }";
+				out << "; } ";
 			}
 			out << "} }()";
 			return;
