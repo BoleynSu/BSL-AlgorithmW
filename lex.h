@@ -14,9 +14,9 @@ struct Position {
 };
 
 enum TokenType {
-	DATA, WHERE, FORALL, DOT, DOUBLE_COLON, RIGHTARROW, SEMICOLON,
+	DATA, WHERE, FORALL, DOT, COLON, RIGHTARROW, SEMICOLON,
 
-	IDENTIFIER, LAMBDA, LET, EQUAL, IN, REC, AND, CASE, OF, FFI,
+	IDENTIFIER, LAMBDA, LET, EQUAL, IN, REC, COMMA, CASE, OF, FFI,
 
 	LEFT_PARENTHESIS, RIGHT_PARENTHESIS, LEFT_BRACE, RIGHT_BRACE,
 
@@ -113,8 +113,8 @@ struct Lexer {
 				token_type = FORALL;
 			} else if (data == ".") {
 				token_type = DOT;
-			} else if (data == "::") {
-				token_type = DOUBLE_COLON;
+			} else if (data == ":") {
+				token_type = COLON;
 			} else if (data == "where") {
 				token_type = WHERE;
 			} else if (data == "->") {
@@ -133,8 +133,8 @@ struct Lexer {
 				token_type = IN;
 			} else if (data == "rec") {
 				token_type = REC;
-			} else if (data == "and") {
-				token_type = AND;
+			} else if (data == ",") {
+				token_type = COMMA;
 			} else if (data == "case") {
 				token_type = CASE;
 			} else if (data == "of") {

@@ -1,32 +1,32 @@
 data Int where ffi ` int `
 
 data Bool where {
-  False::Bool;
-  True::Bool
+  False:Bool;
+  True:Bool
 }
 
 data Maybe a where {
-  Just::forall a.a->Maybe a;
-  Nothing::forall a.Maybe a
+  Just:forall a.a->Maybe a;
+  Nothing:forall a.Maybe a
 }
 
 data List a where {
-  Nil::forall a.List a;
-  Cons::forall a.a->List a->List a
+  Nil:forall a.List a;
+  Cons:forall a.a->List a->List a
 }
 
 data IO a where {
-  Return::forall a.a->IO a;
-  Bind::forall a.forall b.IO a->(a->IO b)->IO b;
-  Read::forall a.(Maybe Int->IO a)->IO a;
-  Write::forall a.Int->IO a->IO a
+  Return:forall a.a->IO a;
+  Bind:forall a.forall b.IO a->(a->IO b)->IO b;
+  Read:forall a.(Maybe Int->IO a)->IO a;
+  Write:forall a.Int->IO a->IO a
 }
 
 let return = Return in
 let bind = Bind in
 let getInt = Read (\x -> return x) in
 let putInt = \x -> Write x (return Nothing) in
-rec runIO::forall a.IO a->a = \x -> case x of {
+rec runIO:forall a.IO a->a = \x -> case x of {
   Return x -> x;
   Bind x f -> case x of {
     Return x -> runIO (f x);
@@ -34,7 +34,7 @@ rec runIO::forall a.IO a->a = \x -> case x of {
     Read g -> runIO (Read (\x -> bind (g x) f));
     Write c x -> runIO (Write c (bind x f))
   };
-  Read g -> let x::Maybe Int = ffi ` [=]() -> void* { int *x = new int; if (std::scanf("%d", x) == 1) return (*((std::function<void*(void*)>*)$v_bsl_Just))(x); else return $v_bsl_Nothing; }() `
+  Read g -> let x:Maybe Int = ffi ` [=]() -> void* { int *x = new int; if (std::scanf("%d", x) == 1) return (*((std::function<void*(void*)>*)$v_bsl_Just))(x); else return $v_bsl_Nothing; }() `
             in runIO (g x);
   Write c x -> let _ = ffi ` (std::printf("%d\n", *((int*)$v_bsl_c)), (void*)0) ` in (runIO x)
 } in
@@ -50,14 +50,14 @@ let and_ = \x -> case x of {
 } in
 
 
-let add::Int->Int->Int = \a -> \b -> ffi ` new int((*(int*)$v_bsl_a) + (*(int*)$v_bsl_b)) ` in
-let neg::Int->Int = \a -> ffi ` new int(-(*(int*)$v_bsl_a)) ` in
-let sub::Int->Int->Int = \a -> \b -> ffi ` new int((*(int*)$v_bsl_a) - (*(int*)$v_bsl_b)) ` in
-let mul::Int->Int->Int = \a -> \b -> ffi ` new int((*(int*)$v_bsl_a) * (*(int*)$v_bsl_b)) ` in
-let div::Int->Int->Int = \a -> \b -> ffi ` new int((*(int*)$v_bsl_a) / (*(int*)$v_bsl_b)) ` in
-let mod::Int->Int->Int = \a -> \b -> ffi ` new int((*(int*)$v_bsl_a) % (*(int*)$v_bsl_b)) ` in
-let less::Int->Int->Bool = \a -> \b -> ffi ` new $t_bsl_Bool{ (*(int*)$v_bsl_a) < (*(int*)$v_bsl_b)?$t_bsl_Bool::$e_bsl_True:$t_bsl_Bool::$e_bsl_False } ` in
-let eq0 = \a -> let zero::Int = ffi ` new int(0) ` in not (and_ (less a zero) (less zero a)) in
+let add:Int->Int->Int = \a -> \b -> ffi ` new int((*(int*)$v_bsl_a) + (*(int*)$v_bsl_b)) ` in
+let neg:Int->Int = \a -> ffi ` new int(-(*(int*)$v_bsl_a)) ` in
+let sub:Int->Int->Int = \a -> \b -> ffi ` new int((*(int*)$v_bsl_a) - (*(int*)$v_bsl_b)) ` in
+let mul:Int->Int->Int = \a -> \b -> ffi ` new int((*(int*)$v_bsl_a) * (*(int*)$v_bsl_b)) ` in
+let div:Int->Int->Int = \a -> \b -> ffi ` new int((*(int*)$v_bsl_a) / (*(int*)$v_bsl_b)) ` in
+let mod:Int->Int->Int = \a -> \b -> ffi ` new int((*(int*)$v_bsl_a) % (*(int*)$v_bsl_b)) ` in
+let less:Int->Int->Bool = \a -> \b -> ffi ` new $t_bsl_Bool{ (*(int*)$v_bsl_a) < (*(int*)$v_bsl_b)?$t_bsl_Bool::$e_bsl_True:$t_bsl_Bool::$e_bsl_False } ` in
+let eq0 = \a -> let zero:Int = ffi ` new int(0) ` in not (and_ (less a zero) (less zero a)) in
 rec gcd = \a -> \b -> case eq0 a of {
   True -> b;
   False -> gcd (mod b a) a
@@ -95,3 +95,4 @@ rec putList = \list -> case list of {
 
 runIO (bind getList \list ->
 putList (sort less list))
+

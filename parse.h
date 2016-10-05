@@ -116,7 +116,7 @@ struct Parser {
 		pair<string, shared_ptr<Poly> > c;
 		expect(IDENTIFIER);
 		c.first = t.data;
-		expect(DOUBLE_COLON);
+		expect(COLON);
 		map<string, shared_ptr<Mono> > m;
 		c.second = parse_polytype(m);
 		return c;
@@ -164,7 +164,7 @@ struct Parser {
 			expr->T = 3;
 			expect(IDENTIFIER);
 			expr->x = t.data;
-			if (accept(DOUBLE_COLON)) {
+			if (accept(COLON)) {
 				map<string, shared_ptr<Mono> > m;
 				s = parse_polytype(m);
 			}
@@ -179,14 +179,14 @@ struct Parser {
 				shared_ptr<Poly> s;
 				expect(IDENTIFIER);
 				expr->xes.push_back(make_pair(t.data, nullptr));
-				if (accept(DOUBLE_COLON)) {
+				if (accept(COLON)) {
 					map<string, shared_ptr<Mono> > m;
 					s = parse_polytype(m);
 				}
 				expect(EQUAL);
 				expr->xes.back().second = parse_expr();
 				expr->xes.back().second->sig = s;
-			} while (accept(AND));
+			} while (accept(COMMA));
 			expect(IN);
 			expr->e = parse_expr();
 		} else {
