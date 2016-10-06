@@ -44,11 +44,10 @@ let not = \x -> case x of {
   False -> True
 } in
 
-let and = \x -> case x of {
+let land = \x -> case x of {
   True -> \x -> x;
   False -> \x -> False
 } in
-
 
 let add:Int->Int->Int = \a -> \b -> ffi ` new int((*(int*)$v_bsl_a) + (*(int*)$v_bsl_b)) ` in
 let neg:Int->Int = \a -> ffi ` new int(-(*(int*)$v_bsl_a)) ` in
@@ -57,7 +56,7 @@ let mul:Int->Int->Int = \a -> \b -> ffi ` new int((*(int*)$v_bsl_a) * (*(int*)$v
 let div:Int->Int->Int = \a -> \b -> ffi ` new int((*(int*)$v_bsl_a) / (*(int*)$v_bsl_b)) ` in
 let mod:Int->Int->Int = \a -> \b -> ffi ` new int((*(int*)$v_bsl_a) % (*(int*)$v_bsl_b)) ` in
 let less:Int->Int->Bool = \a -> \b -> ffi ` new $t_bsl_Bool{ (*(int*)$v_bsl_a) < (*(int*)$v_bsl_b)?$t_bsl_Bool::$e_bsl_True:$t_bsl_Bool::$e_bsl_False } ` in
-let eq0 = \a -> let zero:Int = ffi ` new int(0) ` in not (and (less a zero) (less zero a)) in
+let eq0 = \a -> let zero:Int = ffi ` new int(0) ` in not (land (less a zero) (less zero a)) in
 rec gcd = \a -> \b -> case eq0 a of {
   True -> b;
   False -> gcd (mod b a) a

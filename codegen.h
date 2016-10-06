@@ -117,6 +117,7 @@ struct Codegener {
     auto expr = prog.second;
 
     out << "#include <cstddef>" << endl
+        << "#include <cstdint>" << endl
         << "#include <cstdio>" << endl
         << "#include <cstdlib>" << endl
         << "#include <cstring>" << endl
