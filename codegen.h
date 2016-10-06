@@ -10,6 +10,7 @@
 
 #include "data.h"
 #include "expr.h"
+#include "optimize.h"
 #include "type.h"
 
 using namespace std;
@@ -111,8 +112,7 @@ struct Codegener {
   }
 
   void codegen(
-      pair<shared_ptr<map<string, shared_ptr<Data> > >, shared_ptr<Expr> >
-          prog) {
+      pair<shared_ptr<map<string, shared_ptr<Data>>>, shared_ptr<Expr>> prog) {
     auto data = prog.first;
     auto expr = prog.second;
 
@@ -180,7 +180,7 @@ struct Codegener {
           auto cur = lam;
           for (int j = 0; j < cl[c.first]; j++) {
             stringstream s;
-            s << j;
+            s << "arg" << j;
             cur->T = 2;
             cur->x = s.str();
             cur->e = make_shared<Expr>();
@@ -192,7 +192,7 @@ struct Codegener {
             << "$t_bsl_" << da->name << "::$e_bsl_" << c.first << ", new "
             << "$d_bsl_" << c.first << "{";
           for (int j = 0; j < cl[c.first]; j++) {
-            s << " $v_bsl_" << j << (j + 1 == cl[c.first] ? "" : ",");
+            s << " $v_bsl_arg" << j << (j + 1 == cl[c.first] ? "" : ",");
           }
           s << " } }";
           cur->T = 6;
@@ -205,8 +205,12 @@ struct Codegener {
       }
     }
     stringstream c;
-    infer(expr, make_shared<map<string, shared_ptr<Poly> > >(), cl);
+    infer(expr, make_shared<map<string, shared_ptr<Poly>>>(), cl);
     out << "int main() { ";
+    //    Optimizer optimizer;
+    //    map<string, shared_ptr<Expr>> context;
+    //    expr = optimizer.optimize(expr, context);
+    //    cerr << expr->to_string() << endl;
     codegen(expr);
     out << "; }" << endl;
   }

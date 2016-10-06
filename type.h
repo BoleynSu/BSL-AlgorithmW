@@ -265,7 +265,7 @@ void infer(shared_ptr<Expr> expr,
       infer(expr->e1, context, cl);
       auto contextx = context->count(expr->x) ? (*context)[expr->x] : nullptr;
       (*context)[expr->x] = gen(context, expr->e1->type);
-      cerr << "//" << expr->x << " :: " << to_string((*context)[expr->x])
+      cerr << "//" << expr->x << " : " << to_string((*context)[expr->x])
            << endl;
       infer(expr->e2, context, cl);
       expr->type = expr->e2->type;
@@ -324,8 +324,8 @@ void infer(shared_ptr<Expr> expr,
           contextx_2.push_back(nullptr);
         }
         (*context)[expr->xes[i].first] = taus_2[i];
-        cerr << "//" << expr->xes[i].first
-             << " :: " << to_string((*context)[expr->xes[i].first]) << endl;
+        cerr << "//" << expr->xes[i].first << " : "
+             << to_string((*context)[expr->xes[i].first]) << endl;
       }
       infer(expr->e, context, cl);
       expr->type = expr->e->type;
