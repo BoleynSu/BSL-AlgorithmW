@@ -11,10 +11,10 @@
 using namespace std;
 
 struct Data {
-	int T;
-	string name;
-	vector<pair<string, shared_ptr<Poly> > > constructors;
-	string ffi;
+  int T;
+  string name;
+  vector<pair<string, shared_ptr<Poly> > > constructors;
+  string ffi;
 };
 
 #endif
