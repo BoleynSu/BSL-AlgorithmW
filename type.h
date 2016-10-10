@@ -30,16 +30,11 @@ struct Poly {
 };
 
 shared_ptr<Mono> find(shared_ptr<Mono> x) {
-  switch (x->T) {
-    case 0:
-      if (x->alpha != nullptr) {
-        x->alpha = find(x->alpha);
-        return x->alpha;
-      } else {
-        return x;
-      }
-    case 1:
-      return x;
+  if (x->alpha != nullptr) {
+    x->alpha = find(x->alpha);
+    return x->alpha;
+  } else {
+    return x;
   }
 }
 
@@ -187,13 +182,13 @@ bool occ(shared_ptr<Mono> a, shared_ptr<Mono> b) {
 void unify(shared_ptr<Mono> a, shared_ptr<Mono> b) {
   a = find(a);
   b = find(b);
-  if (a->T == 1 && b->T == 1 && a->D == b->D &&
-      a->tau.size() == b->tau.size()) {
-    for (int i = 0; i < a->tau.size(); i++) {
-      unify(a->tau[i], b->tau[i]);
-    }
-  } else if (a->T == 0) {
-    if (a != b) {
+  if (a != b) {
+    if (a->T == 1 && b->T == 1 && a->D == b->D &&
+        a->tau.size() == b->tau.size()) {
+      for (int i = 0; i < a->tau.size(); i++) {
+        unify(a->tau[i], b->tau[i]);
+      }
+    } else if (a->T == 0) {
       if (occ(a, b)) {
         cerr << "//"
              << "ERROR!" << endl;  // FIXME
@@ -201,9 +196,7 @@ void unify(shared_ptr<Mono> a, shared_ptr<Mono> b) {
       } else {
         a->alpha = b;
       }
-    }
-  } else if (b->T == 0) {
-    if (a != b) {
+    } else if (b->T == 0) {
       if (occ(b, a)) {
         cerr << "//"
              << "ERROR!" << endl;  // FIXME
@@ -211,11 +204,11 @@ void unify(shared_ptr<Mono> a, shared_ptr<Mono> b) {
       } else {
         b->alpha = a;
       }
+    } else {
+      cerr << "//"
+           << "ERROR!" << endl;  // FIXME
+      cerr << "//" << to_string(a) << " != " << to_string(b) << endl;
     }
-  } else {
-    cerr << "//"
-         << "ERROR!" << endl;  // FIXME
-    cerr << "//" << to_string(a) << " != " << to_string(b) << endl;
   }
 }
 
