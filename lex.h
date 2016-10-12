@@ -103,17 +103,7 @@ struct Lexer {
       } else {
         data.push_back(c);
         position.endColumn++;
-        if (c == ':') {
-          c = is.get();
-          if (c != EOF) {
-            if (c == ':') {
-              data.push_back(c);
-              position.endColumn++;
-            } else {
-              is.putback(c);
-            }
-          }
-        } else if (c == '-') {
+        if (c == '-') {
           c = is.get();
           if (c != EOF) {
             if (c == '>') {
