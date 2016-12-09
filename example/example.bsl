@@ -29,6 +29,15 @@ data IO a where {
   Free:forall a.IOImpl (IO a)->IO a
 }
 
+data Expr a where {
+  I   : Int  -> Expr Int;
+  B   : Bool -> Expr Bool;
+  Add : Expr Int -> Expr Int -> Expr Int;
+  Mul : Expr Int -> Expr Int -> Expr Int;
+  Eq  : Expr Int -> Expr Int -> Expr Bool;
+  If  : forall a. Expr Bool -> Expr a -> Expr a -> Expr a
+}
+
 let fmap = \f -> \x -> case x of {
   Write s k -> Write s (f k);
   Read k -> Read (\s -> f (k s))
@@ -108,5 +117,27 @@ rec putList = \list -> case list of {
                putList xs
 } in
 
+rec eval : forall a. Expr a -> a = \x -> case x of : forall a. Expr a -> a {
+  I n -> n;
+  B b -> b;
+  Add  e1 e2 -> add (eval e1) (eval e2);
+  Mul  e1 e2 -> mul (eval e1) (eval e2);
+  Eq   e1 e2 -> eq0 (sub (eval e1) (eval e2));
+  If c e1 e2 -> case eval c of {
+    True -> eval e1;
+    False -> eval e2;
+  }
+} in
+
+let ignore = \a->\b->\c->c in
+rec f :forall a.a->a = \x->ignore (f True) (f Nothing) x in
+
+let _ =
 runIO (bind getList \list ->
 putList (sort less list))
+in
+let one:Int = ffi ` (void*)1 ` in
+let two:Int = ffi ` (void*)2 ` in
+let one = I one in
+let two = I two in
+eval (If (Eq (Add one one) one) one two)
