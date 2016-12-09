@@ -256,7 +256,7 @@ void infer(shared_ptr<Expr> expr,
         expr->type = inst((*context)[expr->x]);
       } else {
         cerr << "//"
-             << "ERROR!" << endl;  // FIXME
+             << "ERROR!" << endl;  // TODO
         cerr << "//" << expr->x << " not in context" << endl;
       }
       break;
@@ -310,7 +310,7 @@ void infer(shared_ptr<Expr> expr,
       for (int i = 0; i < expr->xes.size(); i++) {
         if (v.count(expr->xes[i].first)) {
           cerr << "//"
-               << "ERROR!" << endl;  // FIXME
+               << "ERROR!" << endl;  // TODO
           cerr << "//" << expr->xes[i].first << " variable names conflict"
                << endl;
           return;
@@ -366,13 +366,13 @@ void infer(shared_ptr<Expr> expr,
       }
       break;
     }
-    case 5: {  // TODO FIXME
+    case 5: {  // TODO FIXME exhaustive check
       // begin con check
       for (int i = 0; i < expr->pes.size(); i++) {
         if (!cl.count(expr->pes[i].first[0]) ||
             cl[expr->pes[i].first[0]] != expr->pes[i].first.size() - 1) {
           cerr << "//"
-               << "ERROR!" << endl;  // FIXME
+               << "ERROR!" << endl;  // TODO
           cerr << "//" << expr->pes[i].first[0]
                << " data constructor not does exist or does not match" << endl;
           return;
@@ -381,7 +381,7 @@ void infer(shared_ptr<Expr> expr,
         for (int j = 1; j < expr->pes[i].first.size(); j++) {
           if (v.count(expr->pes[i].first[j])) {
             cerr << "//"
-                 << "ERROR!" << endl;  // FIXME
+                 << "ERROR!" << endl;  // TODO
             cerr << "//" << expr->pes[i].first[0] << " variable names conflict"
                  << endl;
             return;

@@ -39,7 +39,7 @@ struct Parser {
 
   void expect(TokenType token_type) {
     if (!accept(token_type)) {
-      cerr << "ERROR!" << endl;  // FIXME
+      cerr << "ERROR!" << endl;  // TODO
       cerr << lexer.look_at(0).position.beginRow << ","
            << lexer.look_at(0).position.beginColumn << ":"
            << "expect " << token_type << " but get "

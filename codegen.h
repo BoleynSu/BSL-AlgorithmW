@@ -10,7 +10,6 @@
 
 #include "data.h"
 #include "expr.h"
-#include "optimize.h"
 #include "type.h"
 
 using namespace std;
@@ -46,7 +45,7 @@ struct Codegener {
         codegen(expr->e2);
         out << "; } ()";
         return;
-      case 4:  // TODO FIXME
+      case 4:  // TODO FIXME rec x = x + 1
         out << "[=]() -> void* {";
         out << " void";
         for (int i = 0; i < expr->xes.size(); i++) {
@@ -207,10 +206,6 @@ struct Codegener {
     stringstream c;
     infer(expr, make_shared<map<string, shared_ptr<Poly>>>(), cl);
     out << "int main() { ";
-    //    Optimizer optimizer;
-    //    map<string, shared_ptr<Expr>> context;
-    //    expr = optimizer.optimize(expr, context);
-    //    cerr << expr->to_string() << endl;
     codegen(expr);
     out << "; }" << endl;
   }
