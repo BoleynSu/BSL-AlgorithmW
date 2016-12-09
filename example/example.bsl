@@ -49,7 +49,7 @@ rec bind = \x -> \f -> case x of {
 } in
 let getInt = Free (Read (\x -> return x)) in
 let putInt = \x -> Free (Write x (return Unit)) in
-rec runIO:forall a.IO a->a = \x -> case x of {
+rec runIO = \x -> case x of {
   Pure x -> x;
   Free x -> case x of {
     Write c x -> let _ = ffi ` (std::printf("%d\n", (std::intptr_t) $v_bsl_c), nullptr) ` in (runIO x);
@@ -140,4 +140,4 @@ let one:Int = ffi ` (void*)1 ` in
 let two:Int = ffi ` (void*)2 ` in
 let one = I one in
 let two = I two in
-eval (If (Eq (Add one one) one) one two)
+eval (If (Eq (Add one one) two) one two)
