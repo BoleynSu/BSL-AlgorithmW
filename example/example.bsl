@@ -1,5 +1,9 @@
 data Int where ffi ` void `
 
+data Unit where {
+  Unit:Unit
+}
+
 data Bool where {
   False:Bool;
   True:Bool
@@ -15,35 +19,40 @@ data List a where {
   Cons:forall a.a->List a->List a
 }
 
-data IO a where {
-  Return:forall a.a->IO a;
-  Bind:forall a.forall b.IO a->(a->IO b)->IO b;
-  Read:forall a.(Maybe Int->IO a)->IO a;
-  Write:forall a.Int->IO a->IO a
+data IOImpl a where {
+  Read:forall a.(Maybe Int->a)->IOImpl a;
+  Write:forall a.Int->a->IOImpl a
 }
 
-let return = Return in
-let bind = Bind in
-let getInt = Read (\x -> return x) in
-let putInt = \x -> Write x (return Nothing) in
+data IO a where {
+  Pure:forall a.a->IO a;
+  Free:forall a.IOImpl (IO a)->IO a
+}
+
+let fmap = \f -> \x -> case x of {
+  Write s k -> Write s (f k);
+  Read k -> Read (\s -> f (k s))
+} in
+let return = Pure in
+rec bind = \x -> \f -> case x of {
+  Pure x -> f x;
+  Free x -> Free (fmap (\y -> bind y f) x)
+} in
+let getInt = Free (Read (\x -> return x)) in
+let putInt = \x -> Free (Write x (return Unit)) in
 rec runIO:forall a.IO a->a = \x -> case x of {
-  Return x -> x;
-  Bind x f -> case x of {
-    Return x -> runIO (f x);
-    Bind y g -> runIO (f (runIO x));
-    Read g -> runIO (Read (\x -> bind (g x) f));
-    Write c x -> runIO (Write c (bind x f))
-  };
-  Read g -> let x:Maybe Int = ffi `
-    [=]() -> void* {
-      int x;
-      if (std::scanf("%d", &x) == 1)
-        return (*((std::function<void*(void*)>*)$v_bsl_Just))((void*) (std::intptr_t) x);
-      else
-        return $v_bsl_Nothing;
-    }() `
-            in runIO (g x);
-  Write c x -> let _ = ffi ` (std::printf("%d\n", (std::intptr_t) $v_bsl_c), nullptr) ` in (runIO x)
+  Pure x -> x;
+  Free x -> case x of {
+    Write c x -> let _ = ffi ` (std::printf("%d\n", (std::intptr_t) $v_bsl_c), nullptr) ` in (runIO x);
+    Read g -> let x:Maybe Int = ffi ` [=]() -> void* {
+        int x;
+        if (std::scanf("%d", &x) == 1)
+          return (*((std::function<void*(void*)>*)$v_bsl_Just))((void*) (std::intptr_t) x);
+        else
+          return $v_bsl_Nothing;
+      }() `
+              in runIO (g x)
+  }
 } in
 
 let not = \x -> case x of {
@@ -94,11 +103,10 @@ rec getList = bind getInt \x -> case x of {
   Nothing -> return Nil
 } in
 rec putList = \list -> case list of {
-  Nil -> return Nothing;
+  Nil -> return Unit;
   Cons x xs -> bind (putInt x) \_ ->
                putList xs
 } in
 
 runIO (bind getList \list ->
 putList (sort less list))
-
