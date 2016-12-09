@@ -191,7 +191,7 @@ void unify(shared_ptr<Mono> a, shared_ptr<Mono> b) {
     } else if (a->T == 0) {
       if (occ(a, b)) {
         cerr << "//"
-             << "ERROR!" << endl;  // FIXME
+             << "ERROR!" << endl;  // TODO
         cerr << "//" << to_string(a) << " ~ " << to_string(b) << endl;
       } else {
         a->alpha = b;
@@ -199,14 +199,49 @@ void unify(shared_ptr<Mono> a, shared_ptr<Mono> b) {
     } else if (b->T == 0) {
       if (occ(b, a)) {
         cerr << "//"
-             << "ERROR!" << endl;  // FIXME
+             << "ERROR!" << endl;  // TODO
         cerr << "//" << to_string(b) << " ~ " << to_string(a) << endl;
       } else {
         b->alpha = a;
       }
     } else {
       cerr << "//"
-           << "ERROR!" << endl;  // FIXME
+           << "ERROR!" << endl;  // TODO
+      cerr << "//" << to_string(a) << " != " << to_string(b) << endl;
+    }
+  }
+}
+
+void unify_sig(shared_ptr<Mono> a, shared_ptr<Mono> b) {
+  a = find(a);
+  b = find(b);
+  if (a != b) {
+    if (a->T == 1 && b->T == 1 && a->D == b->D &&
+        a->tau.size() == b->tau.size()) {
+      for (int i = 0; i < a->tau.size(); i++) {
+        unify_sig(a->tau[i], b->tau[i]);
+      }
+    } else if (a->T == 0) {
+      if (occ(a, b)) {
+        cerr << "//"
+             << "ERROR!" << endl;  // TODO
+        cerr << "//" << to_string(a) << " ~ " << to_string(b) << endl;
+      } else {
+        a->alpha = b;
+      }
+    } else if (b->T == 0) {
+      if (occ(b, a)) {
+        cerr << "//"
+             << "ERROR!" << endl;  // TODO
+        cerr << "//" << to_string(b) << " ~ " << to_string(a) << endl;
+      } else {
+        cerr << "//"
+             << "ERROR!" << endl;  // TODO
+        cerr << "//" << to_string(b) << " !< " << to_string(a) << endl;
+      }
+    } else {
+      cerr << "//"
+           << "ERROR!" << endl;  // TODO
       cerr << "//" << to_string(a) << " != " << to_string(b) << endl;
     }
   }
@@ -397,7 +432,7 @@ void infer(shared_ptr<Expr> expr,
     }
   }
   if (expr->sig != nullptr) {
-    unify(expr->type, inst(expr->sig));
+    unify_sig(expr->type, inst(expr->sig));
   }
 }
 
