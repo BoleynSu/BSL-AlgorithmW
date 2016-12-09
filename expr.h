@@ -22,7 +22,7 @@ struct Expr {
   vector<pair<vector<string>, shared_ptr<Expr> > > pes;
   string ffi;
   shared_ptr<Mono> type;
-  shared_ptr<Poly> sig;
+  shared_ptr<Poly> sig, gadt;
   Position pos;
 
   string to_string() {

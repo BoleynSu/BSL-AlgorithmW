@@ -214,6 +214,12 @@ struct Parser {
       expr->T = 5;
       expr->e = parse_expr();
       expect(OF);
+      shared_ptr<Poly> g;
+      if (accept(COLON)) {
+        map<string, shared_ptr<Mono> > m;
+        g = parse_polytype(m);
+      }
+      expr->gadt = g;
       expect(LEFT_BRACE);
       while (!match(RIGHT_BRACE)) {
         expr->pes.push_back(make_pair(vector<string>{}, nullptr));
