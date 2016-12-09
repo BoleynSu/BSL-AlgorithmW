@@ -327,7 +327,12 @@ void infer(shared_ptr<Expr> expr,
           contextx_1.push_back(nullptr);
         }
         taus_1.push_back(newvar());
-        (*context)[expr->xes[i].first] = make_shared<Poly>(Poly{0, taus_1[i]});
+        if (expr->xes[i].second->sig != nullptr) {
+          (*context)[expr->xes[i].first] = expr->xes[i].second->sig;
+        } else {
+          (*context)[expr->xes[i].first] =
+              make_shared<Poly>(Poly{0, taus_1[i]});
+        }
       }
       for (int i = 0; i < expr->xes.size(); i++) {
         infer(expr->xes[i].second, context, cl);
