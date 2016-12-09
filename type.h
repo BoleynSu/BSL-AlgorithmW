@@ -212,14 +212,16 @@ void unify(shared_ptr<Mono> a, shared_ptr<Mono> b) {
   }
 }
 
-void unify_sig(shared_ptr<Mono> a, shared_ptr<Mono> b) {
+void unify_sig(shared_ptr<Mono> a, shared_ptr<Mono> b,
+               set<shared_ptr<Mono>>& st) {
   a = find(a);
   b = find(b);
+  st.insert(b);
   if (a != b) {
     if (a->T == 1 && b->T == 1 && a->D == b->D &&
         a->tau.size() == b->tau.size()) {
       for (int i = 0; i < a->tau.size(); i++) {
-        unify_sig(a->tau[i], b->tau[i]);
+        unify_sig(a->tau[i], b->tau[i], st);
       }
     } else if (a->T == 0) {
       if (occ(a, b)) {
@@ -227,7 +229,13 @@ void unify_sig(shared_ptr<Mono> a, shared_ptr<Mono> b) {
              << "ERROR!" << endl;  // TODO
         cerr << "//" << to_string(a) << " ~ " << to_string(b) << endl;
       } else {
-        a->alpha = b;
+        if (st.count(a) && a != b) {
+          cerr << "//"
+               << "ERROR!" << endl;  // TODO
+          cerr << "//" << to_string(a) << " != " << to_string(b) << endl;
+        } else {
+          a->alpha = b;
+        }
       }
     } else if (b->T == 0) {
       if (occ(b, a)) {
@@ -242,7 +250,7 @@ void unify_sig(shared_ptr<Mono> a, shared_ptr<Mono> b) {
     } else {
       cerr << "//"
            << "ERROR!" << endl;  // TODO
-      cerr << "//" << to_string(a) << " != " << to_string(b) << endl;
+      cerr << "//" << to_string(a) << " /= " << to_string(b) << endl;
     }
   }
 }
@@ -403,11 +411,6 @@ void infer(shared_ptr<Expr> expr,
           vector<shared_ptr<Mono>> taus_1;
           vector<shared_ptr<Poly>> contextx_1;
           for (int j = 1; j < expr->pes[i].first.size(); j++) {
-            if (context->count(expr->pes[i].first[j])) {
-              contextx_1.push_back((*context)[expr->pes[i].first[j]]);
-            } else {
-              contextx_1.push_back(nullptr);
-            }
             taus_1.push_back(newvar());
             auto t1 = make_shared<Mono>(), t2 = newvar();
             t1->T = 1;
@@ -416,16 +419,21 @@ void infer(shared_ptr<Expr> expr,
             t1->tau.push_back(t2);
             unify(t1, tau);
             tau = t2;
-            (*context)[expr->pes[i].first[j]] =
-                make_shared<Poly>(Poly{0, taus_1[j - 1]});
           }
           shared_ptr<Mono> fn = make_shared<Mono>();
           fn->T = 1;
           fn->D = "->";
           fn->tau.push_back(tau);
+          for (int j = 1; j < expr->pes[i].first.size(); j++) {
+            if (context->count(expr->pes[i].first[j])) {
+              contextx_1.push_back((*context)[expr->pes[i].first[j]]);
+            } else {
+              contextx_1.push_back(nullptr);
+            }
+            (*context)[expr->pes[i].first[j]] =
+                make_shared<Poly>(Poly{0, taus_1[j - 1]});
+          }
           infer(expr->pes[i].second, context, cl);
-          fn->tau.push_back(expr->pes[i].second->type);
-          fns.push_back(gen(context, fn));
           for (int j = 1; j < expr->pes[i].first.size(); j++) {
             if (contextx_1[j - 1] == nullptr) {
               context->erase(expr->pes[i].first[j]);
@@ -433,6 +441,8 @@ void infer(shared_ptr<Expr> expr,
               (*context)[expr->pes[i].first[j]] = contextx_1[j - 1];
             }
           }
+          fn->tau.push_back(expr->pes[i].second->type);
+          fns.push_back(gen(context, fn));
         }
         infer(expr->e, context, cl);
         expr->type = newvar();
@@ -456,11 +466,6 @@ void infer(shared_ptr<Expr> expr,
           vector<shared_ptr<Mono>> taus_1;
           vector<shared_ptr<Poly>> contextx_1;
           for (int j = 1; j < expr->pes[i].first.size(); j++) {
-            if (context->count(expr->pes[i].first[j])) {
-              contextx_1.push_back((*context)[expr->pes[i].first[j]]);
-            } else {
-              contextx_1.push_back(nullptr);
-            }
             taus_1.push_back(newvar());
             auto t1 = make_shared<Mono>(), t2 = newvar();
             t1->T = 1;
@@ -469,8 +474,6 @@ void infer(shared_ptr<Expr> expr,
             t1->tau.push_back(t2);
             unify(t1, tau);
             tau = t2;
-            (*context)[expr->pes[i].first[j]] =
-                make_shared<Poly>(Poly{0, taus_1[j - 1]});
           }
           shared_ptr<Mono> fn = make_shared<Mono>(), ret = newvar();
           fn->T = 1;
@@ -478,9 +481,17 @@ void infer(shared_ptr<Expr> expr,
           fn->tau.push_back(tau);
           fn->tau.push_back(ret);
           unify(fn, gadt);
-          infer(expr->pes[i].second, context, cl);
-          unify_sig(expr->pes[i].second->type, ret);
           fns.push_back(gen(context, fn));
+          for (int j = 1; j < expr->pes[i].first.size(); j++) {
+            if (context->count(expr->pes[i].first[j])) {
+              contextx_1.push_back((*context)[expr->pes[i].first[j]]);
+            } else {
+              contextx_1.push_back(nullptr);
+            }
+            (*context)[expr->pes[i].first[j]] =
+                make_shared<Poly>(Poly{0, taus_1[j - 1]});
+          }
+          infer(expr->pes[i].second, context, cl);
           for (int j = 1; j < expr->pes[i].first.size(); j++) {
             if (contextx_1[j - 1] == nullptr) {
               context->erase(expr->pes[i].first[j]);
@@ -488,6 +499,9 @@ void infer(shared_ptr<Expr> expr,
               (*context)[expr->pes[i].first[j]] = contextx_1[j - 1];
             }
           }
+          unify(expr->pes[i].second->type, ret);
+          set<shared_ptr<Mono>> st;
+          unify_sig(fn, inst(fns.back()), st);
         }
         infer(expr->e, context, cl);
         expr->type = newvar();
@@ -496,7 +510,8 @@ void infer(shared_ptr<Expr> expr,
         fn->D = "->";
         fn->tau.push_back(expr->e->type);
         fn->tau.push_back(expr->type);
-        unify_sig(fn, inst(expr->gadt));
+        set<shared_ptr<Mono>> st;
+        unify_sig(fn, inst(expr->gadt), st);
         for (int i = 0; i < expr->pes.size(); i++) {
           cerr << "//case " << expr->pes[i].first[0] << " : "
                << to_string(fns[i]) << endl;
@@ -510,7 +525,8 @@ void infer(shared_ptr<Expr> expr,
     }
   }
   if (expr->sig != nullptr) {
-    unify_sig(expr->type, inst(expr->sig));
+    set<shared_ptr<Mono>> st;
+    unify_sig(expr->type, inst(expr->sig), st);
   }
 }
 
