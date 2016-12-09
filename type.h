@@ -474,8 +474,6 @@ void infer(shared_ptr<Expr> expr,
           fn->tau.push_back(ret);
           unify(fn, gadt);
           infer(expr->pes[i].second, context, cl);
-          cerr << to_string(expr->pes[i].second->type) << endl;
-          cerr << to_string(ret) << endl;
           unify_sig(expr->pes[i].second->type, ret);
           fns.push_back(gen(context, fn));
           for (int j = 1; j < expr->pes[i].first.size(); j++) {
