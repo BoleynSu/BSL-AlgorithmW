@@ -2,18 +2,25 @@
 #define SU_BOLEYN_BSL_LEX_H
 
 #include <cstdio>
+#include <deque>
+#include <fstream>
 #include <iostream>
-#include <queue>
 #include <string>
 
 using namespace std;
 
 struct Position {
-  string fileNamespace, filename;
+  string filename;
   int beginRow, beginColumn, endRow, endColumn;
 };
+ostream& operator<<(ostream& out, Position& p) {
+  out << p.filename << ":[" << p.beginRow << "," << p.beginColumn << "-"
+      << p.endRow << "," << p.endColumn << ")";
+}
 
 enum TokenType {
+  HASHBANG,
+
   DATA,
   WHERE,
   FORALL,
@@ -38,9 +45,12 @@ enum TokenType {
   RIGHT_BRACE,
 
   IDENTIFIER,
+
   SPACE,
-  ERROR,
-  END
+  COMMENT,
+  END,
+
+  ERROR
 };
 
 struct Token {
@@ -50,9 +60,12 @@ struct Token {
 };
 
 struct Lexer {
+  string filename;
+  ifstream in;
   deque<Token> tokens;
-  Lexer(istream& is) {
+  Lexer(const string& filename) : filename(filename), in(filename) {
     Position position;
+    position.filename = filename;
     position.endRow = 1;
     position.endColumn = 1;
     for (;;) {
@@ -60,7 +73,7 @@ struct Lexer {
       position.beginColumn = position.endColumn;
       TokenType token_type;
       string data;
-      char c = is.get();
+      char c = in.get();
       if (c == EOF) {
         break;
       } else if (c == ' ' || c == '\t') {
@@ -74,13 +87,13 @@ struct Lexer {
       } else if (c == '\r') {
         data.push_back(c);
         position.endColumn++;
-        c = is.get();
+        c = in.get();
         if (c != EOF) {
           if (c == '\n') {
             data.push_back(c);
             position.endColumn++;
           } else {
-            is.putback(c);
+            in.putback(c);
           }
         }
         position.endRow++;
@@ -90,13 +103,13 @@ struct Lexer {
         for (;;) {
           data.push_back(c);
           position.endColumn++;
-          c = is.get();
+          c = in.get();
           if (c == EOF) {
             break;
           }
           if (!(('0' <= c && c <= '9') || ('A' <= c && c <= 'Z') ||
                 ('a' <= c && c <= 'z') || c == '_' || c == '\'')) {
-            is.putback(c);
+            in.putback(c);
             break;
           }
         }
@@ -104,18 +117,59 @@ struct Lexer {
         data.push_back(c);
         position.endColumn++;
         if (c == '-') {
-          c = is.get();
+          c = in.get();
           if (c != EOF) {
-            if (c == '>') {
+            if (c == '>') {  //"->"
+              data.push_back(c);
+              position.endColumn++;
+            } else if (c == '-') {  //"--"
               data.push_back(c);
               position.endColumn++;
             } else {
-              is.putback(c);
+              in.putback(c);
+            }
+          }
+        } else if (c == '#') {
+          if (position.beginRow == 1 && position.beginColumn == 1) {
+            c = in.get();
+            if (c != EOF) {
+              if (c == '!') {  //"#!"
+                data.push_back(c);
+                position.endColumn++;
+              } else {
+                in.putback(c);
+              }
+            }
+          }
+        } else if (c == '{') {
+          c = in.get();
+          if (c != EOF) {
+            if (c == '-') {  //"{-"
+              data.push_back(c);
+              position.endColumn++;
+            } else {
+              in.putback(c);
             }
           }
         }
       }
-      if (data == "data") {
+      if (data == "#!") {
+        for (;;) {
+          c = in.get();
+          if (c != EOF) {
+            if (c == '\n' || c == '\r') {
+              in.putback(c);
+              break;
+            } else {
+              data.push_back(c);
+              position.endColumn++;
+            }
+          } else {
+            break;
+          }
+        }
+        token_type = HASHBANG;
+      } else if (data == "data") {
         token_type = DATA;
       } else if (data == "where") {
         token_type = WHERE;
@@ -151,19 +205,19 @@ struct Lexer {
         token_type = FFI;
         do {
           data.push_back(c);
-          c = is.get();
+          c = in.get();
           if (c == EOF) {
             break;
           } else if (c == '\n') {
             position.endRow++;
             position.endColumn = 1;
           } else if (c == '\r') {
-            c = is.get();
+            c = in.get();
             if (c != EOF) {
               if (c == '\n') {
                 data.push_back(c);
               } else {
-                is.putback(c);
+                in.putback(c);
               }
             }
             position.endRow++;
@@ -180,7 +234,7 @@ struct Lexer {
             data.push_back(c);
             position.endColumn++;
             sep.push_back(c);
-            c = is.get();
+            c = in.get();
             if (c == EOF) {
               break;
             }
@@ -193,19 +247,19 @@ struct Lexer {
               if (data.substr(data.size() - sep.size(), sep.size()) == sep) {
                 break;
               }
-              c = is.get();
+              c = in.get();
               if (c == EOF) {
                 break;
               } else if (c == '\n') {
                 position.endRow++;
                 position.endColumn = 1;
               } else if (c == '\r') {
-                c = is.get();
+                c = in.get();
                 if (c != EOF) {
                   if (c == '\n') {
                     data.push_back(c);
                   } else {
-                    is.putback(c);
+                    in.putback(c);
                   }
                 }
                 position.endRow++;
@@ -227,6 +281,53 @@ struct Lexer {
         token_type = LEFT_BRACE;
       } else if (data == "}") {
         token_type = RIGHT_BRACE;
+      } else if (data == "--") {
+        for (;;) {
+          c = in.get();
+          if (c != EOF) {
+            if (c == '\n' || c == '\r') {
+              in.putback(c);
+              break;
+            } else {
+              data.push_back(c);
+              position.endColumn++;
+            }
+          } else {
+            break;
+          }
+        }
+        token_type = COMMENT;
+      } else if (data == "{-") {
+        token_type = COMMENT;
+        for (;;) {
+          c = in.get();
+          if (c != EOF) {
+            if (c == '-') {
+              data.push_back(c);
+              position.endColumn++;
+              c = in.get();
+              if (c != EOF) {
+                if (c == '}') {  //"-}"
+                  data.push_back(c);
+                  position.endColumn++;
+                  break;
+                } else {
+                  in.putback(c);
+                }
+              } else {
+                break;
+              }
+            } else {
+              data.push_back(c);
+              position.endColumn++;
+            }
+          } else {
+            break;
+          }
+        }
+        if (c == EOF) {
+          token_type = ERROR;
+        }
       } else {
         c = data[0];
         if (('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z') || c == '_' ||
@@ -237,6 +338,14 @@ struct Lexer {
         } else {
           token_type = ERROR;
         }
+      }
+      if (token_type == ERROR) {
+        if (data.length() > 78) {
+          data = data.substr(0, 75) + "...";
+        }
+        cerr << "lexer: " << position << " token not recognized:" << endl
+             << "`" << data << "`" << endl;
+        exit(EXIT_FAILURE);
       }
       tokens.push_back({token_type, data, position});
     }
