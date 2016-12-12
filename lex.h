@@ -19,7 +19,7 @@ ostream& operator<<(ostream& out, const Position& p) {
   return out;
 }
 
-enum TokenType {
+enum class TokenType {
   HASHBANG,
 
   DATA,
@@ -53,6 +53,89 @@ enum TokenType {
 
   ERROR
 };
+ostream& operator<<(ostream& out, TokenType t) {
+  switch (t) {
+    case TokenType::HASHBANG:
+      out << "HASHBANG";
+      break;
+    case TokenType::DATA:
+      out << "DATA";
+      break;
+    case TokenType::WHERE:
+      out << "WHERE";
+      break;
+    case TokenType::FORALL:
+      out << "FORALL";
+      break;
+    case TokenType::DOT:
+      out << "DOT";
+      break;
+    case TokenType::COLON:
+      out << "COLON";
+      break;
+    case TokenType::RIGHTARROW:
+      out << "RIGHTARROW";
+      break;
+    case TokenType::SEMICOLON:
+      out << "SEMICOLON";
+      break;
+    case TokenType::LAMBDA:
+      out << "LAMBDA";
+      break;
+    case TokenType::LET:
+      out << "LET";
+      break;
+    case TokenType::EQUAL:
+      out << "EQUAL";
+      break;
+    case TokenType::IN:
+      out << "IN";
+      break;
+    case TokenType::REC:
+      out << "REC";
+      break;
+    case TokenType::AND:
+      out << "AND";
+      break;
+    case TokenType::CASE:
+      out << "CASE";
+      break;
+    case TokenType::OF:
+      out << "OF";
+      break;
+    case TokenType::FFI:
+      out << "FFI";
+      break;
+    case TokenType::LEFT_PARENTHESIS:
+      out << "LEFT_PARENTHESIS";
+      break;
+    case TokenType::RIGHT_PARENTHESIS:
+      out << "RIGHT_PARENTHESIS";
+      break;
+    case TokenType::LEFT_BRACE:
+      out << "LEFT_BRACE";
+      break;
+    case TokenType::RIGHT_BRACE:
+      out << "RIGHT_BRACE";
+      break;
+    case TokenType::IDENTIFIER:
+      out << "IDENTIFIER";
+      break;
+    case TokenType::SPACE:
+      out << "SPACE";
+      break;
+    case TokenType::COMMENT:
+      out << "COMMENT";
+      break;
+    case TokenType::END:
+      out << "END";
+      break;
+    case TokenType::ERROR:
+      out << "ERROR";
+      break;
+  }
+  return out;
+}
 
 struct Token {
   TokenType token_type;
@@ -169,41 +252,41 @@ struct Lexer {
             break;
           }
         }
-        token_type = HASHBANG;
+        token_type = TokenType::HASHBANG;
       } else if (data == "data") {
-        token_type = DATA;
+        token_type = TokenType::DATA;
       } else if (data == "where") {
-        token_type = WHERE;
+        token_type = TokenType::WHERE;
       } else if (data == "forall") {
-        token_type = FORALL;
+        token_type = TokenType::FORALL;
       } else if (data == ".") {
-        token_type = DOT;
+        token_type = TokenType::DOT;
       } else if (data == ":") {
-        token_type = COLON;
+        token_type = TokenType::COLON;
       } else if (data == "where") {
-        token_type = WHERE;
+        token_type = TokenType::WHERE;
       } else if (data == "->") {
-        token_type = RIGHTARROW;
+        token_type = TokenType::RIGHTARROW;
       } else if (data == ";") {
-        token_type = SEMICOLON;
+        token_type = TokenType::SEMICOLON;
       } else if (data == "\\") {
-        token_type = LAMBDA;
+        token_type = TokenType::LAMBDA;
       } else if (data == "let") {
-        token_type = LET;
+        token_type = TokenType::LET;
       } else if (data == "=") {
-        token_type = EQUAL;
+        token_type = TokenType::EQUAL;
       } else if (data == "in") {
-        token_type = IN;
+        token_type = TokenType::IN;
       } else if (data == "rec") {
-        token_type = REC;
+        token_type = TokenType::REC;
       } else if (data == "and") {
-        token_type = AND;
+        token_type = TokenType::AND;
       } else if (data == "case") {
-        token_type = CASE;
+        token_type = TokenType::CASE;
       } else if (data == "of") {
-        token_type = OF;
+        token_type = TokenType::OF;
       } else if (data == "ffi") {
-        token_type = FFI;
+        token_type = TokenType::FFI;
         do {
           data.push_back(c);
           c = in.get();
@@ -228,7 +311,7 @@ struct Lexer {
           }
         } while (c == ' ' || c == '\t' || c == '\n' || c == '\r');
         if (c == EOF) {
-          token_type = ERROR;
+          token_type = TokenType::ERROR;
         } else {
           string sep;
           do {
@@ -241,7 +324,7 @@ struct Lexer {
             }
           } while (!(c == ' ' || c == '\t' || c == '\n' || c == '\r'));
           if (c == EOF) {
-            token_type = ERROR;
+            token_type = TokenType::ERROR;
           } else {
             for (;;) {
               data.push_back(c);
@@ -270,18 +353,18 @@ struct Lexer {
               }
             }
             if (c == EOF) {
-              token_type = ERROR;
+              token_type = TokenType::ERROR;
             }
           }
         }
       } else if (data == "(") {
-        token_type = LEFT_PARENTHESIS;
+        token_type = TokenType::LEFT_PARENTHESIS;
       } else if (data == ")") {
-        token_type = RIGHT_PARENTHESIS;
+        token_type = TokenType::RIGHT_PARENTHESIS;
       } else if (data == "{") {
-        token_type = LEFT_BRACE;
+        token_type = TokenType::LEFT_BRACE;
       } else if (data == "}") {
-        token_type = RIGHT_BRACE;
+        token_type = TokenType::RIGHT_BRACE;
       } else if (data == "--") {
         for (;;) {
           c = in.get();
@@ -297,9 +380,9 @@ struct Lexer {
             break;
           }
         }
-        token_type = COMMENT;
+        token_type = TokenType::COMMENT;
       } else if (data == "{-") {
-        token_type = COMMENT;
+        token_type = TokenType::COMMENT;
         for (;;) {
           c = in.get();
           if (c != EOF) {
@@ -327,20 +410,20 @@ struct Lexer {
           }
         }
         if (c == EOF) {
-          token_type = ERROR;
+          token_type = TokenType::ERROR;
         }
       } else {
         c = data[0];
         if (('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z') || c == '_' ||
             c == '\'') {
-          token_type = IDENTIFIER;
+          token_type = TokenType::IDENTIFIER;
         } else if (c == ' ' || c == '\t' || c == '\n' || c == '\r') {
-          token_type = SPACE;
+          token_type = TokenType::SPACE;
         } else {
-          token_type = ERROR;
+          token_type = TokenType::ERROR;
         }
       }
-      if (token_type == ERROR) {
+      if (token_type == TokenType::ERROR) {
         if (data.length() > 78) {
           data = data.substr(0, 75) + "...";
         }
@@ -350,7 +433,7 @@ struct Lexer {
       }
       tokens.push_back({token_type, data, position});
     }
-    tokens.push_back({END, "", position});
+    tokens.push_back({TokenType::END, "", position});
   }
   Token look_at(int i) { return tokens[i]; }
   Token next() {

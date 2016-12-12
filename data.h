@@ -6,13 +6,14 @@
 #include <utility>
 #include <vector>
 
-#include "type.h"
+#include "expr.h"
 
 using namespace std;
 
 struct Data {
-  int T;
+  bool is_ffi;
   string name;
+  int arg;
   vector<pair<string, shared_ptr<Poly> > > constructors;
   string ffi;
 };

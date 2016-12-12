@@ -1,21 +1,26 @@
-#ifndef SU_BOLEYN_BSL_CODEGEN_H
-#define SU_BOLEYN_BSL_CODEGEN_H
+#ifndef SU_BOLEYN_BSL_CODE_GENERATE_H
+#define SU_BOLEYN_BSL_CODE_GENERATE_H
 
 #include <iostream>
 #include <map>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "data.h"
 #include "expr.h"
-#include "type.h"
+#include "parse.h"
+#include "type_inference.h"
 
 using namespace std;
 
-struct Codegener {
+struct CodeGenerator {
+  Parser& parser;
   ostream& out;
+  CodeGenerator(Parser& parser, ostream& out) : parser(parser), out(out) {
+    codegen(parser.parse());
+  }
 
   void codegen(shared_ptr<Expr> expr) {
     switch (expr->T) {
@@ -50,7 +55,7 @@ struct Codegener {
         out << " void";
         for (int i = 0; i < expr->xes.size(); i++) {
           auto t = find(expr->xes[i].second->type);
-          if (t->T == 1) {
+          if (t->is_const) {
             out << (i ? ", *" : " *") << "$v_bsl_" << expr->xes[i].first
                 << " = new ";
             if (t->D == "->") {
@@ -114,7 +119,6 @@ struct Codegener {
       pair<shared_ptr<map<string, shared_ptr<Data>>>, shared_ptr<Expr>> prog) {
     auto data = prog.first;
     auto expr = prog.second;
-
     out << "#include <cstddef>" << endl
         << "#include <cstdint>" << endl
         << "#include <cstdio>" << endl
@@ -133,43 +137,38 @@ struct Codegener {
     map<string, int> cl;
     for (auto dai : *data) {
       auto da = dai.second;
-      switch (da->T) {
-        case 0: {
-          out << "struct $t_bsl_" << da->name << " { enum {";
-          for (int i = 0; i < da->constructors.size(); i++) {
-            auto c = da->constructors[i];
-            out << (i ? ", " : " ") << "$e_bsl_" << c.first;
-          }
-          out << " } T; void* ptr; };" << endl;
-          for (int i = 0; i < da->constructors.size(); i++) {
-            auto c = da->constructors[i];
-            out << "struct $d_bsl_" << c.first << " {";
-            auto t1 = c.second;
-            while (t1->T == 1) {
-              t1 = t1->sigma;
-            }
-            auto t2 = t1->tau;
-            int& j = cl[c.first];
-            while (t2->T == 1 && t2->D == "->") {
-              out << " void* "
-                  << "d" << j << ";";
-              j++;
-              t2 = t2->tau[1];
-            }
-            out << " };" << endl;
-          }
-          break;
+      if (da->is_ffi) {
+        out << "typedef " << da->ffi << " $t_bsl_" << da->name << ";" << endl;
+      } else {
+        out << "struct $t_bsl_" << da->name << " { enum {";
+        for (int i = 0; i < da->constructors.size(); i++) {
+          auto c = da->constructors[i];
+          out << (i ? ", " : " ") << "$e_bsl_" << c.first;
         }
-        case 1: {
-          out << "typedef " << da->ffi << " $t_bsl_" << da->name << ";" << endl;
-          break;
+        out << " } T; void* ptr; };" << endl;
+        for (int i = 0; i < da->constructors.size(); i++) {
+          auto c = da->constructors[i];
+          out << "struct $d_bsl_" << c.first << " {";
+          auto t1 = c.second;
+          while (t1->is_poly) {
+            t1 = t1->sigma;
+          }
+          auto t2 = t1->tau;
+          int& j = cl[c.first];
+          while (t2->is_const && t2->D == "->") {
+            out << " void* "
+                << "d" << j << ";";
+            j++;
+            t2 = t2->tau[1];
+          }
+          out << " };" << endl;
         }
       }
     }
 
     for (auto dai : *data) {
       auto da = dai.second;
-      if (da->T == 0) {
+      if (!da->is_ffi) {
         for (int i = 0; i < da->constructors.size(); i++) {
           auto c = da->constructors[i];
           auto e = make_shared<Expr>();

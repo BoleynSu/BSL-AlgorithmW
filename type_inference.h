@@ -1,5 +1,5 @@
-#ifndef SU_BOLEYN_BSL_TYPE_H
-#define SU_BOLEYN_BSL_TYPE_H
+#ifndef SU_BOLEYN_BSL_TYPE_INFERENCE_H
+#define SU_BOLEYN_BSL_TYPE_INFERENCE_H
 
 #include <initializer_list>
 #include <iostream>
@@ -12,22 +12,9 @@
 #include <vector>
 
 #include "expr.h"
+#include "type.h"
 
 using namespace std;
-
-struct Mono {
-  int T;
-  shared_ptr<Mono> alpha;
-  string D;
-  vector<shared_ptr<Mono>> tau;
-};
-
-struct Poly {
-  int T;
-  shared_ptr<Mono> tau;
-  shared_ptr<Mono> alpha;
-  shared_ptr<Poly> sigma;
-};
 
 shared_ptr<Mono> find(shared_ptr<Mono> x) {
   if (x->alpha != nullptr) {
@@ -40,72 +27,65 @@ shared_ptr<Mono> find(shared_ptr<Mono> x) {
 
 string to_string(shared_ptr<Mono> tau) {
   tau = find(tau);
-  switch (tau->T) {
-    case 0: {
-      stringstream s;
-      s << "t" << find(tau);
-      return s.str();
-    }
-    case 1:
-      if (tau->D == "->") {
-        return "(" + to_string(tau->tau[0]) + ")->(" + to_string(tau->tau[1]) +
-               ")";
-      } else {
-        string ret = tau->D;
-        for (auto t : tau->tau) {
-          ret += " (" + to_string(t) + ")";
-        }
-        return ret;
+  if (tau->is_const) {
+    if (tau->D == "->") {
+      return "(" + to_string(tau->tau[0]) + ")->(" + to_string(tau->tau[1]) +
+             ")";
+    } else {
+      string ret = tau->D;
+      for (auto t : tau->tau) {
+        ret += " (" + to_string(t) + ")";
       }
+      return ret;
+    }
+  } else {
+    stringstream s;
+    s << "t" << find(tau);
+    return s.str();
   }
 }
 
 string to_string(shared_ptr<Poly> sigma) {
-  switch (sigma->T) {
-    case 0:
-      return to_string(sigma->tau);
-    case 1: {
-      stringstream s;
-      s << "t" << find(sigma->alpha);
-      return "forall " + s.str() + " . " + to_string(sigma->sigma);
-    }
+  if (sigma->is_poly) {
+    stringstream s;
+    s << "t" << find(sigma->alpha);
+    return "forall " + s.str() + " . " + to_string(sigma->sigma);
+  } else {
+    return to_string(sigma->tau);
   }
 }
 
-shared_ptr<Mono> newvar() { return make_shared<Mono>(Mono{0}); }
+shared_ptr<Mono> newvar() { return make_shared<Mono>(Mono{false}); }
 
 shared_ptr<Mono> inst(shared_ptr<Mono> tau,
                       map<shared_ptr<Mono>, shared_ptr<Mono>>& m) {
   tau = find(tau);
-  switch (tau->T) {
-    case 0:
-      if (m.count(tau)) {
-        return m[tau];
-      } else {
-        return tau;
-      }
-    case 1: {
-      auto t = make_shared<Mono>();
-      t->T = tau->T;
-      t->D = tau->D;
-      for (int i = 0; i < tau->tau.size(); i++) {
-        t->tau.push_back(inst(tau->tau[i], m));
-      }
-      return t;
+  if (tau->is_const) {
+    auto t = make_shared<Mono>();
+    t->is_const = tau->is_const;
+    t->D = tau->D;
+    for (int i = 0; i < tau->tau.size(); i++) {
+      t->tau.push_back(inst(tau->tau[i], m));
+    }
+    return t;
+  } else {
+    if (m.count(tau)) {
+      return m[tau];
+    } else {
+      return tau;
     }
   }
 }
 
 shared_ptr<Mono> inst(shared_ptr<Poly> sigma,
                       map<shared_ptr<Mono>, shared_ptr<Mono>>& m) {
-  switch (sigma->T) {
-    case 0:
-      return inst(sigma->tau, m);
-    case 1:
-      if (!m.count(find(sigma->alpha))) {
-        m[find(sigma->alpha)] = newvar();
-      }
-      return inst(sigma->sigma, m);
+  if (sigma->is_poly) {
+    if (!m.count(find(sigma->alpha))) {
+      m[find(sigma->alpha)] = newvar();
+    }
+    return inst(sigma->sigma, m);
+  } else {
+    return inst(sigma->tau, m);
   }
 }
 
@@ -116,27 +96,21 @@ shared_ptr<Mono> inst(shared_ptr<Poly> sigma) {
 
 void ftv(set<shared_ptr<Mono>>& f, shared_ptr<Mono> tau) {
   tau = find(tau);
-  switch (tau->T) {
-    case 0:
-      f.insert(tau);
-      return;
-    case 1:
-      for (int i = 0; i < tau->tau.size(); i++) {
-        ftv(f, tau->tau[i]);
-      }
-      return;
+  if (tau->is_const) {
+    for (int i = 0; i < tau->tau.size(); i++) {
+      ftv(f, tau->tau[i]);
+    }
+  } else {
+    f.insert(tau);
   }
 }
 
 void ftv(set<shared_ptr<Mono>>& f, shared_ptr<Poly> sigma) {
-  switch (sigma->T) {
-    case 0:
-      ftv(f, sigma->tau);
-      return;
-    case 1:
-      ftv(f, sigma->sigma);
-      f.erase(find(sigma->alpha));
-      return;
+  if (sigma->is_poly) {
+    ftv(f, sigma->sigma);
+    f.erase(find(sigma->alpha));
+  } else {
+    ftv(f, sigma->tau);
   }
 }
 
@@ -158,24 +132,23 @@ shared_ptr<Poly> gen(shared_ptr<map<string, shared_ptr<Poly>>> context,
   for (auto f : fp) {
     m[f] = newvar();
   }
-  auto g = make_shared<Poly>(Poly{0, inst(tau, m)});
+  auto g = make_shared<Poly>(Poly{false, inst(tau, m)});
   for (auto f : m) {
-    g = make_shared<Poly>(Poly{1, nullptr, f.second, g});
+    g = make_shared<Poly>(Poly{true, nullptr, f.second, g});
   }
   return g;
 }
 
 bool occ(shared_ptr<Mono> a, shared_ptr<Mono> b) {
-  switch (b->T) {
-    case 0:
-      return a == b;
-    case 1:
-      for (int i = 0; i < b->tau.size(); i++) {
-        if (occ(a, find(b->tau[i]))) {
-          return true;
-        }
+  if (b->is_const) {
+    for (int i = 0; i < b->tau.size(); i++) {
+      if (occ(a, find(b->tau[i]))) {
+        return true;
       }
-      return false;
+    }
+    return false;
+  } else {
+    return a == b;
   }
 }
 
@@ -183,12 +156,12 @@ void unify(shared_ptr<Mono> a, shared_ptr<Mono> b) {
   a = find(a);
   b = find(b);
   if (a != b) {
-    if (a->T == 1 && b->T == 1 && a->D == b->D &&
+    if (a->is_const && b->is_const && a->D == b->D &&
         a->tau.size() == b->tau.size()) {
       for (int i = 0; i < a->tau.size(); i++) {
         unify(a->tau[i], b->tau[i]);
       }
-    } else if (a->T == 0) {
+    } else if (!a->is_const) {
       if (occ(a, b)) {
         cerr << "//"
              << "ERROR!" << endl;  // TODO
@@ -196,7 +169,7 @@ void unify(shared_ptr<Mono> a, shared_ptr<Mono> b) {
       } else {
         a->alpha = b;
       }
-    } else if (b->T == 0) {
+    } else if (!b->is_const) {
       if (occ(b, a)) {
         cerr << "//"
              << "ERROR!" << endl;  // TODO
@@ -218,12 +191,12 @@ void unify_sig(shared_ptr<Mono> a, shared_ptr<Mono> b,
   b = find(b);
   st.insert(b);
   if (a != b) {
-    if (a->T == 1 && b->T == 1 && a->D == b->D &&
+    if (a->is_const && b->is_const && a->D == b->D &&
         a->tau.size() == b->tau.size()) {
       for (int i = 0; i < a->tau.size(); i++) {
         unify_sig(a->tau[i], b->tau[i], st);
       }
-    } else if (a->T == 0) {
+    } else if (!a->is_const) {
       if (occ(a, b)) {
         cerr << "//"
              << "ERROR!" << endl;  // TODO
@@ -237,7 +210,7 @@ void unify_sig(shared_ptr<Mono> a, shared_ptr<Mono> b,
           a->alpha = b;
         }
       }
-    } else if (b->T == 0) {
+    } else if (!b->is_const) {
       if (occ(b, a)) {
         cerr << "//"
              << "ERROR!" << endl;  // TODO
@@ -273,7 +246,7 @@ void infer(shared_ptr<Expr> expr,
       infer(expr->e2, context, cl);
       expr->type = newvar();
       auto t = make_shared<Mono>();
-      t->T = 1;
+      t->is_const = true;
       t->D = "->";
       t->tau.push_back(expr->e2->type);
       t->tau.push_back(expr->type);
@@ -283,10 +256,10 @@ void infer(shared_ptr<Expr> expr,
     case 2: {
       auto tau = newvar();
       auto contextx = context->count(expr->x) ? (*context)[expr->x] : nullptr;
-      (*context)[expr->x] = make_shared<Poly>(Poly{0, tau});
+      (*context)[expr->x] = make_shared<Poly>(Poly{false, tau});
       infer(expr->e, context, cl);
       expr->type = make_shared<Mono>();
-      expr->type->T = 1;
+      expr->type->is_const = true;
       expr->type->D = "->";
       expr->type->tau.push_back(tau);
       expr->type->tau.push_back(expr->e->type);
@@ -339,7 +312,7 @@ void infer(shared_ptr<Expr> expr,
           (*context)[expr->xes[i].first] = expr->xes[i].second->sig;
         } else {
           (*context)[expr->xes[i].first] =
-              make_shared<Poly>(Poly{0, taus_1[i]});
+              make_shared<Poly>(Poly{false, taus_1[i]});
         }
       }
       for (int i = 0; i < expr->xes.size(); i++) {
@@ -413,7 +386,7 @@ void infer(shared_ptr<Expr> expr,
           for (int j = 1; j < expr->pes[i].first.size(); j++) {
             taus_1.push_back(newvar());
             auto t1 = make_shared<Mono>(), t2 = newvar();
-            t1->T = 1;
+            t1->is_const = true;
             t1->D = "->";
             t1->tau.push_back(taus_1[j - 1]);
             t1->tau.push_back(t2);
@@ -421,7 +394,7 @@ void infer(shared_ptr<Expr> expr,
             tau = t2;
           }
           shared_ptr<Mono> fn = make_shared<Mono>();
-          fn->T = 1;
+          fn->is_const = true;
           fn->D = "->";
           fn->tau.push_back(tau);
           for (int j = 1; j < expr->pes[i].first.size(); j++) {
@@ -431,7 +404,7 @@ void infer(shared_ptr<Expr> expr,
               contextx_1.push_back(nullptr);
             }
             (*context)[expr->pes[i].first[j]] =
-                make_shared<Poly>(Poly{0, taus_1[j - 1]});
+                make_shared<Poly>(Poly{false, taus_1[j - 1]});
           }
           infer(expr->pes[i].second, context, cl);
           for (int j = 1; j < expr->pes[i].first.size(); j++) {
@@ -447,7 +420,7 @@ void infer(shared_ptr<Expr> expr,
         infer(expr->e, context, cl);
         expr->type = newvar();
         shared_ptr<Mono> fn = make_shared<Mono>();
-        fn->T = 1;
+        fn->is_const = true;
         fn->D = "->";
         fn->tau.push_back(expr->e->type);
         fn->tau.push_back(expr->type);
@@ -468,7 +441,7 @@ void infer(shared_ptr<Expr> expr,
           for (int j = 1; j < expr->pes[i].first.size(); j++) {
             taus_1.push_back(newvar());
             auto t1 = make_shared<Mono>(), t2 = newvar();
-            t1->T = 1;
+            t1->is_const = true;
             t1->D = "->";
             t1->tau.push_back(taus_1[j - 1]);
             t1->tau.push_back(t2);
@@ -476,7 +449,7 @@ void infer(shared_ptr<Expr> expr,
             tau = t2;
           }
           shared_ptr<Mono> fn = make_shared<Mono>(), ret = newvar();
-          fn->T = 1;
+          fn->is_const = true;
           fn->D = "->";
           fn->tau.push_back(tau);
           fn->tau.push_back(ret);
@@ -489,7 +462,7 @@ void infer(shared_ptr<Expr> expr,
               contextx_1.push_back(nullptr);
             }
             (*context)[expr->pes[i].first[j]] =
-                make_shared<Poly>(Poly{0, taus_1[j - 1]});
+                make_shared<Poly>(Poly{false, taus_1[j - 1]});
           }
           infer(expr->pes[i].second, context, cl);
           for (int j = 1; j < expr->pes[i].first.size(); j++) {
@@ -506,7 +479,7 @@ void infer(shared_ptr<Expr> expr,
         infer(expr->e, context, cl);
         expr->type = newvar();
         shared_ptr<Mono> fn = make_shared<Mono>();
-        fn->T = 1;
+        fn->is_const = true;
         fn->D = "->";
         fn->tau.push_back(expr->e->type);
         fn->tau.push_back(expr->type);
