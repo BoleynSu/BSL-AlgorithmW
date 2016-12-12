@@ -49,14 +49,7 @@ rec runIO = \x -> case x of {
   Pure x -> x;
   Free x -> case x of {
     Write c x -> let _ = ffi ` (std::printf("%d\n", (std::intptr_t) $v_bsl_c), nullptr) ` in (runIO x);
-    Read g -> let x:Maybe Int = ffi ` [=]() -> void* {
-        int x;
-        if (std::scanf("%d", &x) == 1)
-          return (*((std::function<void*(void*)>*)$v_bsl_Just))((void*) (std::intptr_t) x);
-        else
-          return $v_bsl_Nothing;
-      }() `
-              in runIO (g x)
+    Read g -> let x:Maybe Int = ffi ` [=]() -> void* { int x; if (std::scanf("%d", &x) == 1) return (*((std::function<void*(void*)>*)$v_bsl_Just))((void*) (std::intptr_t) x); else return $v_bsl_Nothing; }() ` in runIO (g x)
   }
 } in
 
@@ -97,5 +90,7 @@ rec putList = \list -> case list of {
                putList xs
 } in
 
-runIO (bind getList \list ->
-putList (sort less list))
+let main = bind getList \list ->
+                putList (sort less list)
+in runIO main
+
