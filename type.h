@@ -510,8 +510,7 @@ void infer(shared_ptr<Expr> expr,
         fn->D = "->";
         fn->tau.push_back(expr->e->type);
         fn->tau.push_back(expr->type);
-        set<shared_ptr<Mono>> st;
-        unify_sig(fn, inst(expr->gadt), st);
+        unify(fn, inst(expr->gadt));
         for (int i = 0; i < expr->pes.size(); i++) {
           cerr << "//case " << expr->pes[i].first[0] << " : "
                << to_string(fns[i]) << endl;
