@@ -241,9 +241,20 @@ struct Parser {
       expr->e2 = parse_expr();
     } else if (accept(TokenType::REC)) {
       expr->T = ExprType::REC;
+      set<string> st;
       do {
         shared_ptr<Poly> s;
         expect(TokenType::IDENTIFIER);
+        if (st.count(t.data)) {
+          string data = t.data;
+          if (data.length() > 78) {
+            data = data.substr(0, 75) + "...";
+          }
+          cerr << "parser: " << t.position << " variable names conflict" << endl
+               << "`" << data << "`" << endl;
+          exit(EXIT_FAILURE);
+        }
+        st.insert(t.data);
         expr->xes.push_back(make_pair(t.data, nullptr));
         if (accept(TokenType::COLON)) {
           map<string, shared_ptr<Mono>> m;
@@ -305,12 +316,41 @@ struct Parser {
       expect(TokenType::LEFT_BRACE);
       do {
         expr->pes.push_back(make_pair(vector<string>{}, nullptr));
-        do {
+        expect(TokenType::IDENTIFIER);
+        if (expr->pes.back().first.empty()) {
+          if (!constructor_decl->count(t.data)) {
+            string data = t.data;
+            if (data.length() > 78) {
+              data = data.substr(0, 75) + "...";
+            }
+            cerr << "parser: " << t.position << " constructor not found" << endl
+                 << "`" << data << "`" << endl;
+            exit(EXIT_FAILURE);
+          }
+        }
+        expr->pes.back().first.push_back(t.data);
+        auto c = (*constructor_decl)[expr->pes.back().first.front()];
+        set<string> st;
+        for (size_t i = 0; i < c->arg; i++) {
           expect(TokenType::IDENTIFIER);
+          if (st.count(t.data)) {
+            string data = t.data;
+            if (data.length() > 78) {
+              data = data.substr(0, 75) + "...";
+            }
+            cerr << "parser: " << t.position << " variable names conflict"
+                 << endl
+                 << "`" << data << "`" << endl;
+            exit(EXIT_FAILURE);
+          }
+          st.insert(t.data);
           expr->pes.back().first.push_back(t.data);
-        } while (!accept(TokenType::RIGHTARROW));
+        }
+        expect(TokenType::RIGHTARROW);
         expr->pes.back().second = parse_expr();
-        accept(TokenType::SEMICOLON);
+        if (!match(TokenType::RIGHT_BRACE)) {
+          expect(TokenType::SEMICOLON);
+        }
       } while (!match(TokenType::RIGHT_BRACE));
       expect(TokenType::RIGHT_BRACE);
     } else if (accept(TokenType::FFI)) {

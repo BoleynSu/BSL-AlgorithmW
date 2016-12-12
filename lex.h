@@ -427,7 +427,7 @@ struct Lexer {
         if (data.length() > 78) {
           data = data.substr(0, 75) + "...";
         }
-        cerr << "lexer: " << position << " token not recognized:" << endl
+        cerr << "lexer: " << position << " token not recognized" << endl
              << "`" << data << "`" << endl;
         exit(EXIT_FAILURE);
       }

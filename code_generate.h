@@ -1,6 +1,7 @@
 #ifndef SU_BOLEYN_BSL_CODE_GENERATE_H
 #define SU_BOLEYN_BSL_CODE_GENERATE_H
 
+#include <cstdlib>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -11,6 +12,7 @@
 #include "data.h"
 #include "expr.h"
 #include "parse.h"
+#include "type.h"
 #include "type_inference.h"
 
 using namespace std;
@@ -65,9 +67,10 @@ struct CodeGenerator {
             }
             out << "()";
           } else {
-            cerr << "ERROR!" << endl;
-            cerr << "rec " << expr->xes[i].first << " = "
+            cerr << "code generator:" << endl
+                 << "rec " << expr->xes[i].first << " = "
                  << expr->xes[i].second->to_string() << " in ..." << endl;
+            exit(EXIT_FAILURE);
           }
         }
         out << ";";
@@ -137,7 +140,6 @@ struct CodeGenerator {
            "return e -= sz; "
            "}"
         << endl;
-    map<string, size_t> cl;
     for (auto dai : *data) {
       auto da = dai.second;
       if (da->is_ffi) {
@@ -157,11 +159,9 @@ struct CodeGenerator {
             t1 = t1->sigma;
           }
           auto t2 = t1->tau;
-          size_t& j = cl[c->name];
-          while (t2->is_const && t2->D == "->") {
+          for (size_t j = 0; j < (*cons)[c->name]->arg; j++) {
             out << " void* "
                 << "d" << j << ";";
-            j++;
             t2 = t2->tau[1];
           }
           out << " };" << endl;
@@ -179,7 +179,7 @@ struct CodeGenerator {
           e->x = c->name;
           auto lam = make_shared<Expr>();
           auto cur = lam;
-          for (size_t j = 0; j < cl[c->name]; j++) {
+          for (size_t j = 0; j < (*cons)[c->name]->arg; j++) {
             stringstream s;
             s << "arg" << j;
             cur->T = ExprType::ABS;
@@ -192,8 +192,9 @@ struct CodeGenerator {
             << "$t_bsl_" << da->name << " { "
             << "$t_bsl_" << da->name << "::$e_bsl_" << c->name << ", new "
             << "$d_bsl_" << c->name << "{";
-          for (size_t j = 0; j < cl[c->name]; j++) {
-            s << " $v_bsl_arg" << j << (j + 1 == cl[c->name] ? "" : ",");
+          for (size_t j = 0; j < (*cons)[c->name]->arg; j++) {
+            s << " $v_bsl_arg" << j
+              << (j + 1 == (*cons)[c->name]->arg ? "" : ",");
           }
           s << " } }";
           cur->T = ExprType::FFI;
@@ -206,7 +207,7 @@ struct CodeGenerator {
       }
     }
     stringstream c;
-    infer(expr, make_shared<map<string, shared_ptr<Poly>>>(), cl);
+    infer(expr, make_shared<map<string, shared_ptr<Poly>>>(), prog.first);
     out << "int main() { ";
     codegen(expr);
     out << "; }" << endl;

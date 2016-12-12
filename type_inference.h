@@ -1,16 +1,16 @@
 #ifndef SU_BOLEYN_BSL_TYPE_INFERENCE_H
 #define SU_BOLEYN_BSL_TYPE_INFERENCE_H
 
-#include <initializer_list>
+#include <cstdlib>
 #include <iostream>
 #include <map>
 #include <memory>
 #include <set>
-#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "data.h"
 #include "expr.h"
 #include "type.h"
 
@@ -124,24 +124,21 @@ void unify(shared_ptr<Mono> a, shared_ptr<Mono> b) {
       }
     } else if (!a->is_const) {
       if (occ(a, b)) {
-        cerr << "//"
-             << "ERROR!" << endl;  // TODO
-        cerr << "//" << to_string(a) << " ~ " << to_string(b) << endl;
+        cerr << "type error: " << to_string(a) << " ~ " << to_string(b) << endl;
+        exit(EXIT_FAILURE);
       } else {
         a->alpha = b;
       }
     } else if (!b->is_const) {
       if (occ(b, a)) {
-        cerr << "//"
-             << "ERROR!" << endl;  // TODO
-        cerr << "//" << to_string(b) << " ~ " << to_string(a) << endl;
+        cerr << "type error: " << to_string(b) << " ~ " << to_string(a) << endl;
+        exit(EXIT_FAILURE);
       } else {
         b->alpha = a;
       }
     } else {
-      cerr << "//"
-           << "ERROR!" << endl;  // TODO
-      cerr << "//" << to_string(a) << " != " << to_string(b) << endl;
+      cerr << "type error: " << to_string(a) << " != " << to_string(b) << endl;
+      exit(EXIT_FAILURE);
     }
   }
 }
@@ -159,47 +156,44 @@ void unify_sig(shared_ptr<Mono> a, shared_ptr<Mono> b,
       }
     } else if (!a->is_const) {
       if (occ(a, b)) {
-        cerr << "//"
-             << "ERROR!" << endl;  // TODO
-        cerr << "//" << to_string(a) << " ~ " << to_string(b) << endl;
+        cerr << "type error: " << to_string(a) << " ~ " << to_string(b) << endl;
+        exit(EXIT_FAILURE);
       } else {
         if (st.count(a) && a != b) {
-          cerr << "//"
-               << "ERROR!" << endl;  // TODO
-          cerr << "//" << to_string(a) << " != " << to_string(b) << endl;
+          cerr << "type error: " << to_string(a) << " != " << to_string(b)
+               << endl;
+          exit(EXIT_FAILURE);
         } else {
           a->alpha = b;
         }
       }
     } else if (!b->is_const) {
       if (occ(b, a)) {
-        cerr << "//"
-             << "ERROR!" << endl;  // TODO
-        cerr << "//" << to_string(b) << " ~ " << to_string(a) << endl;
+        cerr << "type error: " << to_string(b) << " ~ " << to_string(a) << endl;
+        exit(EXIT_FAILURE);
       } else {
-        cerr << "//"
-             << "ERROR!" << endl;  // TODO
-        cerr << "//" << to_string(b) << " !< " << to_string(a) << endl;
+        cerr << "type error: " << to_string(b) << " !< " << to_string(a)
+             << endl;
+        exit(EXIT_FAILURE);
       }
     } else {
-      cerr << "//"
-           << "ERROR!" << endl;  // TODO
-      cerr << "//" << to_string(a) << " /= " << to_string(b) << endl;
+      cerr << "type error: " << to_string(a) << " /= " << to_string(b) << endl;
+      exit(EXIT_FAILURE);
     }
   }
 }
 
 void infer(shared_ptr<Expr> expr,
            shared_ptr<map<string, shared_ptr<Poly>>> context,
-           map<string, size_t>& cl) {
+           pair<shared_ptr<map<string, shared_ptr<Data>>>,
+                shared_ptr<map<string, shared_ptr<Constructor>>>>& cl) {
   switch (expr->T) {
     case ExprType::VAR:
       if (context->count(expr->x)) {
         expr->type = inst((*context)[expr->x]);
       } else {
-        cerr << "//"
-             << "ERROR!" << endl;  // TODO
-        cerr << "//" << expr->x << " not in context" << endl;
+        cerr << "type error: " << expr->x << " is not in context" << endl;
+        exit(EXIT_FAILURE);
       }
       break;
     case ExprType::APP: {
@@ -247,19 +241,6 @@ void infer(shared_ptr<Expr> expr,
       break;
     }
     case ExprType::REC: {
-      // begin rec check
-      set<string> v;
-      for (size_t i = 0; i < expr->xes.size(); i++) {
-        if (v.count(expr->xes[i].first)) {
-          cerr << "//"
-               << "ERROR!" << endl;  // TODO
-          cerr << "//" << expr->xes[i].first << " variable names conflict"
-               << endl;
-          return;
-        }
-        v.insert(expr->xes[i].first);
-      }
-      // end rec check
       vector<shared_ptr<Mono>> taus_1;
       vector<shared_ptr<Poly>> contextx_1;
       for (size_t i = 0; i < expr->xes.size(); i++) {
@@ -314,30 +295,6 @@ void infer(shared_ptr<Expr> expr,
       break;
     }
     case ExprType::CASE: {
-      // TODO FIXME exhaustive check
-      // begin con check
-      for (size_t i = 0; i < expr->pes.size(); i++) {
-        if (!cl.count(expr->pes[i].first[0]) ||
-            cl[expr->pes[i].first[0]] != expr->pes[i].first.size() - 1) {
-          cerr << "//"
-               << "ERROR!" << endl;  // TODO
-          cerr << "//" << expr->pes[i].first[0]
-               << " data constructor not does exist or does not match" << endl;
-          return;
-        }
-        set<string> v;
-        for (size_t j = 1; j < expr->pes[i].first.size(); j++) {
-          if (v.count(expr->pes[i].first[j])) {
-            cerr << "//"
-                 << "ERROR!" << endl;  // TODO
-            cerr << "//" << expr->pes[i].first[0] << " variable names conflict"
-                 << endl;
-            return;
-          }
-          v.insert(expr->pes[i].first[j]);
-        }
-      }
-      // end con check
       if (expr->gadt == nullptr) {
         vector<shared_ptr<Poly>> fns;
         for (size_t i = 0; i < expr->pes.size(); i++) {
