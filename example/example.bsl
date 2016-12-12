@@ -1,3 +1,5 @@
+#!/home/jiaosu/workspace/algorithm-w/example/bslc
+
 data Int where ffi ` void `
 
 data Unit where {
@@ -37,6 +39,29 @@ data Expr a where {
   Eq  : Expr Int -> Expr Int -> Expr Bool;
   If  : forall a. Expr Bool -> Expr a -> Expr a -> Expr a
 }
+
+data B a b c where{}
+data A a where{
+--XXXX:forall a.forall b.B Int (A Int)(Expr Int->Expr (B a a a))->A a;
+}
+
+--data T1 where {T1:forall a.forall a.a->T1}
+
+--data TT a b c d where -> { TT:forall a.forall b.a b-> TT (a b)}
+--let f =\x ->case x of {NOTFND -> x} in
+
+--let f =\x ->case x of {Nothing->x;Unit->x;} in
+--let f =\x->case x of {} in
+{-
+let f = \x ->case x of {
+XXXX a->\x->x
+} case x of:A->A {
+XXXX a->x
+} in-}
+--let f= ffi ` 0 ` ffi ` 0 ` ffi ` 0 ` in
+--rec a = b and b = a and a = b in
+--let f = \x -> case x of {Cons a b  -> x} in
+
 
 let fmap = \f -> \x -> case x of {
   Write s k -> Write s (f k);
@@ -131,6 +156,17 @@ rec eval : forall a. Expr a -> a = \x -> case x of : forall a. Expr a -> a {
 
 let ignore = \a->\b->\c->c in
 rec f :forall a.a->a = \x->ignore (f True) (f Nothing) x in
+
+let one:Int= ffi ` (void*) 1 ` in
+let two:Int= ffi ` (void*) 2 ` in
+let ten:Int = ffi ` (void*) 1000 ` in
+let undefined= ffi  ` (void*) 0 ` in
+rec take =\x -> \l -> case eq0  x of {
+True->Nil;
+False -> Cons (case l of {Cons h _->h;Nil -> undefined}) (take (sub x one) (case l of {Cons _ t->t;Nil->undefined}))
+} in
+rec a = Cons one b and b = Cons two a in
+let _ = runIO (bind (return (take ten a)) putList) in
 
 let _ =
 runIO (bind getList \list ->

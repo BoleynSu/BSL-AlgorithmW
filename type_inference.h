@@ -259,8 +259,8 @@ void infer(shared_ptr<Expr> expr,
       infer(expr->e1, context, dnc);
       auto contextx = context->count(expr->x) ? (*context)[expr->x] : nullptr;
       (*context)[expr->x] = gen(context, expr->e1->type);
-      cerr << "//" << expr->x << " : " << to_string((*context)[expr->x])
-           << endl;
+      //cerr << "//" << expr->x << " : " << to_string((*context)[expr->x])
+      //     << endl;
       infer(expr->e2, context, dnc);
       expr->type = expr->e2->type;
       if (contextx == nullptr) {
@@ -310,8 +310,8 @@ void infer(shared_ptr<Expr> expr,
           contextx_2.push_back(nullptr);
         }
         (*context)[expr->xes[i].first] = taus_2[i];
-        cerr << "//" << expr->xes[i].first << " : "
-             << to_string((*context)[expr->xes[i].first]) << endl;
+        //cerr << "//" << expr->xes[i].first << " : "
+        //     << to_string((*context)[expr->xes[i].first]) << endl;
       }
       infer(expr->e, context, dnc);
       expr->type = expr->e->type;
@@ -372,10 +372,10 @@ void infer(shared_ptr<Expr> expr,
         }
         expr->gadt = gen(context, gadt);
       }
-      for (auto& fn : fns) {
-        cerr << "//case " << fn.first << " : " << to_string(fn.second) << endl;
-      }
-      cerr << "//: " << to_string(expr->gadt) << endl;
+      //for (auto& fn : fns) {
+      //  cerr << "//case " << fn.first << " : " << to_string(fn.second) << endl;
+      //}
+      //cerr << "//: " << to_string(expr->gadt) << endl;
       auto c = (*dnc.first)[(*dnc.second)[fns.begin()->first]->data_name]
                    ->constructors;
       for (size_t i = 0; i < c.size(); i++) {

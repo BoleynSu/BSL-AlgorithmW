@@ -1,3 +1,5 @@
+#!/home/jiaosu/workspace/algorithm-w/example/bslc
+
 data Pair a b where {
   Pair:forall a.forall b.a->b->Pair a b;
 }
@@ -6,6 +8,8 @@ data List a where {
   Nil:forall a.List a;
   Cons:forall a.a->List a->List a;
 }
+data String where {
+}
 
 data Expr where {
   EVar:String->Expr;
@@ -13,7 +17,7 @@ data Expr where {
   EAbs:String->Expr;
   ELet:String->Expr->Expr;
   ERec:List (Pair String Expr)->Expr;
-  ECaseOf:Expr->List (Pair (List String) Expr);
+  ECaseOf:List (Pair (List String) Expr)->Expr;
 }
 
 data Mono where {
