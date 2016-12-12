@@ -327,36 +327,52 @@ struct Parser {
     }
     return expr;
   }
-  void check(shared_ptr<Constructor> c, shared_ptr<Mono> p, bool m) {
+  void check(shared_ptr<Constructor> c, shared_ptr<Mono> p,
+             set<shared_ptr<Mono>>& st, bool m, bool r) {
     if (p->is_const) {
       if (p->D == "->") {
         assert(p->tau.size() == 2);
-        check(c, p->tau[0], m && false);
-        check(c, p->tau[1], m && true);
+        check(c, p->tau[0], st, m && false, r);
+        check(c, p->tau[1], st, m && true, r);
       } else {
         if (data_decl->count(p->D)) {
           if (m) {
             if (p->D != c->data_name) {
-              cerr << "parser: in constructor " << c->name << endl
+              cerr << "parser: in constructor " << c->name << ":"
+                   << to_string(c->type) << endl
                    << "return type is " << p->D << " instead of "
                    << c->data_name << endl;
               exit(EXIT_FAILURE);
             }
           }
           if (p->tau.size() != (*data_decl)[p->D]->arg) {
-            cerr << "parser: in constructor " << c->name << endl
+            cerr << "parser: in constructor " << c->name << ":"
+                 << to_string(c->type) << endl
                  << p->D << " expects " << (*data_decl)[p->D]->arg
                  << " arguments, but only gets " << p->tau.size() << endl;
             exit(EXIT_FAILURE);
           }
           for (size_t i = 0; i < p->tau.size(); i++) {
-            check(c, p->tau[i], false);
+            check(c, p->tau[i], st, false, m || r);
+          }
+          if (m) {
+            if (!st.empty()) {
+              cerr << "parser: in constructor " << c->name << ":"
+                   << to_string(c->type) << endl
+                   << "existential type is not supported yet" << endl;
+              exit(EXIT_FAILURE);
+            }
           }
         } else {
-          cerr << "parser: in constructor " << c->name << endl
+          cerr << "parser: in constructor " << c->name << ":"
+               << to_string(c->type) << endl
                << p->D << " is not a type" << endl;
           exit(EXIT_FAILURE);
         }
+      }
+    } else {
+      if (r) {
+        st.erase(p);
       }
     }
   }
@@ -371,10 +387,12 @@ struct Parser {
     }
     for (auto& c : *constructor_decl) {
       shared_ptr<Poly> p = c.second->type;
+      set<shared_ptr<Mono>> st;
       while (p->is_poly) {
+        st.insert(p->alpha);
         p = p->sigma;
       }
-      check(c.second, p->tau, true);
+      check(c.second, p->tau, st, true, false);
     }
     auto expr = parse_expr();
     expect(TokenType::END);
