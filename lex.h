@@ -13,9 +13,10 @@ struct Position {
   string filename;
   int beginRow, beginColumn, endRow, endColumn;
 };
-ostream& operator<<(ostream& out, Position& p) {
+ostream& operator<<(ostream& out, const Position& p) {
   out << p.filename << ":[" << p.beginRow << "," << p.beginColumn << "-"
       << p.endRow << "," << p.endColumn << ")";
+  return out;
 }
 
 enum TokenType {
