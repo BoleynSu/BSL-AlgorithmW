@@ -1,6 +1,7 @@
 #ifndef SU_BOLEYN_BSL_PARSE_H
 #define SU_BOLEYN_BSL_PARSE_H
 
+#include <cassert>
 #include <cstdlib>
 #include <iostream>
 #include <map>
@@ -21,6 +22,7 @@ struct Parser {
   Lexer& lexer;
   Token t;
   shared_ptr<map<string, shared_ptr<Data>>> data_decl;
+  shared_ptr<map<string, shared_ptr<Constructor>>> constructor_decl;
 
   Parser(Lexer& lexer) : lexer(lexer) {}
 
@@ -69,7 +71,7 @@ struct Parser {
     return mo;
   }
 
-  shared_ptr<Mono> parse_monotype_(map<string, shared_ptr<Mono>>& m) {  // FIXME
+  shared_ptr<Mono> parse_monotype_(map<string, shared_ptr<Mono>>& m) {
     shared_ptr<Mono> mo;
     if (accept(TokenType::IDENTIFIER)) {
       if (m.count(t.data)) {
@@ -129,19 +131,48 @@ struct Parser {
     }
   }
 
-  pair<string, shared_ptr<Poly>> parse_constructor() {
-    pair<string, shared_ptr<Poly>> c;
+  shared_ptr<Constructor> parse_constructor() {
+    auto c = make_shared<Constructor>();
     expect(TokenType::IDENTIFIER);
-    c.first = t.data;
+    if (constructor_decl->count(t.data)) {
+      string data = t.data;
+      if (data.length() > 78) {
+        data = data.substr(0, 75) + "...";
+      }
+      cerr << "parser: " << t.position << " constructor names conflict" << endl
+           << "`" << data << "`" << endl;
+      exit(EXIT_FAILURE);
+    }
+    c->name = t.data;
     expect(TokenType::COLON);
     map<string, shared_ptr<Mono>> m;
-    c.second = parse_polytype(m);
+    c->type = parse_polytype(m);
+    (*constructor_decl)[c->name] = c;
+    auto tp = c->type;
+    while (tp->is_poly) {
+      tp = tp->sigma;
+    }
+    auto tm = tp->tau;
+    c->arg = 0;
+    while (tm->is_const && tm->D == "->") {
+      c->arg++;
+      tm = tm->tau[1];
+    }
     return c;
   }
 
   shared_ptr<Data> parse_data() {
     auto d = make_shared<Data>();
     expect(TokenType::IDENTIFIER);
+    if (data_decl->count(t.data)) {
+      string data = t.data;
+      if (data.length() > 78) {
+        data = data.substr(0, 75) + "...";
+      }
+      cerr << "parser: " << t.position << " type names conflict" << endl
+           << "`" << data << "`" << endl;
+      exit(EXIT_FAILURE);
+    }
     d->name = t.data;
     d->arg = 0;
     set<string> st;
@@ -168,7 +199,7 @@ struct Parser {
       s.get();
       string sep;
       s >> sep;
-      int a = t.data.find(sep);
+      size_t a = t.data.find(sep);
       d->ffi =
           t.data.substr(a + sep.size(), t.data.size() - (a + 2 * sep.size()));
     } else {
@@ -176,25 +207,27 @@ struct Parser {
       d->is_ffi = false;
       while (!accept(TokenType::RIGHT_BRACE)) {
         d->constructors.push_back(parse_constructor());
+        d->constructors.back()->data_name = d->name;
         if (!match(TokenType::RIGHT_BRACE)) {
           expect(TokenType::SEMICOLON);
         }
       }
     }
+    (*data_decl)[d->name] = d;
     return d;
   }
 
   shared_ptr<Expr> parse_expr() {
     auto expr = make_shared<Expr>();
     if (accept(TokenType::LAMBDA)) {
-      expr->T = 2;
+      expr->T = ExprType::ABS;
       expect(TokenType::IDENTIFIER);
       expr->x = t.data;
       expect(TokenType::RIGHTARROW);
       expr->e = parse_expr();
     } else if (accept(TokenType::LET)) {
       shared_ptr<Poly> s;
-      expr->T = 3;
+      expr->T = ExprType::LET;
       expect(TokenType::IDENTIFIER);
       expr->x = t.data;
       if (accept(TokenType::COLON)) {
@@ -207,7 +240,7 @@ struct Parser {
       expect(TokenType::IN);
       expr->e2 = parse_expr();
     } else if (accept(TokenType::REC)) {
-      expr->T = 4;
+      expr->T = ExprType::REC;
       do {
         shared_ptr<Poly> s;
         expect(TokenType::IDENTIFIER);
@@ -228,7 +261,7 @@ struct Parser {
           match(TokenType::REC)) {
         auto e1 = parse_expr();
         auto e2 = make_shared<Expr>();
-        e2->T = 1;
+        e2->T = ExprType::APP;
         e2->e1 = expr;
         e2->e2 = e1;
         expr = e2;
@@ -240,13 +273,13 @@ struct Parser {
   shared_ptr<Expr> parse_expr_() {
     auto expr = make_shared<Expr>();
     if (accept(TokenType::IDENTIFIER)) {
-      expr->T = 0;
+      expr->T = ExprType::VAR;
       expr->x = t.data;
     } else if (accept(TokenType::LEFT_PARENTHESIS)) {
       expr = parse_expr();
       expect(TokenType::RIGHT_PARENTHESIS);
     } else if (accept(TokenType::CASE)) {
-      expr->T = 5;
+      expr->T = ExprType::CASE;
       expr->e = parse_expr();
       expect(TokenType::OF);
       shared_ptr<Poly> g;
@@ -256,7 +289,7 @@ struct Parser {
       }
       expr->gadt = g;
       expect(TokenType::LEFT_BRACE);
-      while (!match(TokenType::RIGHT_BRACE)) {
+      do {
         expr->pes.push_back(make_pair(vector<string>{}, nullptr));
         do {
           expect(TokenType::IDENTIFIER);
@@ -264,17 +297,17 @@ struct Parser {
         } while (!accept(TokenType::RIGHTARROW));
         expr->pes.back().second = parse_expr();
         accept(TokenType::SEMICOLON);
-      }
+      } while (!match(TokenType::RIGHT_BRACE));
       expect(TokenType::RIGHT_BRACE);
     } else if (accept(TokenType::FFI)) {
-      expr->T = 6;
+      expr->T = ExprType::FFI;
       stringstream s(t.data);
       s.get();
       s.get();
       s.get();
       string sep;
       s >> sep;
-      int a = t.data.find(sep);
+      size_t a = t.data.find(sep);
       expr->ffi =
           t.data.substr(a + sep.size(), t.data.size() - (a + 2 * sep.size()));
     }
@@ -283,13 +316,13 @@ struct Parser {
       auto t1 = expr;
       expr = make_shared<Expr>();
       if (accept(TokenType::IDENTIFIER)) {
-        expr->T = 0;
+        expr->T = ExprType::VAR;
         expr->x = t.data;
       } else if (accept(TokenType::LEFT_PARENTHESIS)) {
         expr = parse_expr();
         expect(TokenType::RIGHT_PARENTHESIS);
       } else if (accept(TokenType::CASE)) {
-        expr->T = 5;
+        expr->T = ExprType::CASE;
         expr->e = parse_expr();
         expect(TokenType::OF);
         expect(TokenType::LEFT_BRACE);
@@ -304,35 +337,77 @@ struct Parser {
         }
         expect(TokenType::RIGHT_BRACE);
       } else if (accept(TokenType::FFI)) {
-        expr->T = 6;
+        expr->T = ExprType::FFI;
         stringstream s(t.data);
         s.get();
         s.get();
         s.get();
         string sep;
         s >> sep;
-        int a = t.data.find(sep);
+        size_t a = t.data.find(sep);
         expr->ffi =
             t.data.substr(a + sep.size(), t.data.size() - (a + 2 * sep.size()));
       }
       auto t2 = make_shared<Expr>();
-      t2->T = 1;
+      t2->T = ExprType::APP;
       t2->e1 = t1;
       t2->e2 = expr;
       expr = t2;
     }
     return expr;
   }
-
-  pair<shared_ptr<map<string, shared_ptr<Data>>>, shared_ptr<Expr>> parse() {
+  void check(shared_ptr<Constructor> c, shared_ptr<Mono> p, bool m) {
+    if (p->is_const) {
+      if (p->D == "->") {
+        assert(p->tau.size() == 2);
+        check(c, p->tau[0], m && false);
+        check(c, p->tau[1], m && true);
+      } else {
+        if (data_decl->count(p->D)) {
+          if (m) {
+            if (p->D != c->data_name) {
+              cerr << "parser: in constructor " << c->name << endl
+                   << "return type is " << p->D << " instead of "
+                   << c->data_name << endl;
+              exit(EXIT_FAILURE);
+            }
+          }
+          if (p->tau.size() != (*data_decl)[p->D]->arg) {
+            cerr << "parser: in constructor " << c->name << endl
+                 << p->D << " expects " << (*data_decl)[p->D]->arg
+                 << " arguments, but only gets " << p->tau.size() << endl;
+            exit(EXIT_FAILURE);
+          }
+          for (size_t i = 0; i < p->tau.size(); i++) {
+            check(c, p->tau[i], false);
+          }
+        } else {
+          cerr << "parser: in constructor " << c->name << endl
+               << p->D << " is not a type" << endl;
+          exit(EXIT_FAILURE);
+        }
+      }
+    }
+  }
+  pair<pair<shared_ptr<map<string, shared_ptr<Data>>>,
+            shared_ptr<map<string, shared_ptr<Constructor>>>>,
+       shared_ptr<Expr>>
+  parse() {
     data_decl = make_shared<map<string, shared_ptr<Data>>>();
+    constructor_decl = make_shared<map<string, shared_ptr<Constructor>>>();
     while (accept(TokenType::DATA)) {
-      auto d = parse_data();
-      (*data_decl)[d->name] = d;
+      parse_data();
+    }
+    for (auto& c : *constructor_decl) {
+      shared_ptr<Poly> p = c.second->type;
+      while (p->is_poly) {
+        p = p->sigma;
+      }
+      check(c.second, p->tau, true);
     }
     auto expr = parse_expr();
     expect(TokenType::END);
-    return make_pair(data_decl, expr);
+    return make_pair(make_pair(data_decl, constructor_decl), expr);
   }
 };
 

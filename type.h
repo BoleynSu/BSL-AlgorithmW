@@ -5,9 +5,6 @@
 #include <string>
 #include <vector>
 
-enum MonoType {
-
-};
 struct Mono {
   bool is_const;
   shared_ptr<Mono> alpha;

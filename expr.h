@@ -1,6 +1,8 @@
 #ifndef SU_BOLEYN_BSL_EXPR_H
 #define SU_BOLEYN_BSL_EXPR_H
 
+#include <cassert>
+#include <cstdlib>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -14,8 +16,10 @@ using namespace std;
 struct Mono;
 struct Poly;
 
+enum class ExprType { VAR, APP, ABS, LET, REC, CASE, FFI };
+
 struct Expr {
-  int T;
+  ExprType T;
   string x;
   shared_ptr<Expr> e1, e2, e;
   vector<pair<string, shared_ptr<Expr> > > xes;
@@ -27,19 +31,19 @@ struct Expr {
 
   string to_string() {
     switch (T) {
-      case 0:
+      case ExprType::VAR:
         return x;
-      case 1:
+      case ExprType::APP:
         return e1->to_string() + " (" + e2->to_string() + ")";
-      case 2:
+      case ExprType::ABS:
         return "(\\" + x + "->" + e->to_string() + ")";
-      case 3:
+      case ExprType::LET:
         return "(let " + x + " = " + e1->to_string() + " in " +
                e2->to_string() + ")";
-      case 4: {
+      case ExprType::REC: {
         stringstream s;
         s << "(rec";
-        for (int i = 0; i < xes.size(); i++) {
+        for (size_t i = 0; i < xes.size(); i++) {
           if (i) {
             s << " and ";
           } else {
@@ -50,11 +54,11 @@ struct Expr {
         s << " in " << e->to_string() << ")";
         return s.str();
       }
-      case 5: {
+      case ExprType::CASE: {
         stringstream s;
         s << "(case " << e->to_string() << " of {";
-        for (int i = 0; i < pes.size(); i++) {
-          for (int j = 0; j < pes[i].first.size(); j++) {
+        for (size_t i = 0; i < pes.size(); i++) {
+          for (size_t j = 0; j < pes[i].first.size(); j++) {
             s << pes[i].first[j] << (j + 1 == pes[i].first.size() ? "" : " ");
           }
           s << "->" << pes[i].second->to_string()
@@ -63,8 +67,11 @@ struct Expr {
         s << "})";
         return s.str();
       }
-      case 6:
+      case ExprType::FFI:
         return ffi;
+      default:
+        assert(false);
+        exit(EXIT_FAILURE);
     }
   }
 };

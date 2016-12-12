@@ -10,11 +10,18 @@
 
 using namespace std;
 
+struct Constructor {
+  string name;
+  size_t arg;
+  shared_ptr<Poly> type;
+  string data_name;
+};
+
 struct Data {
   bool is_ffi;
   string name;
-  int arg;
-  vector<pair<string, shared_ptr<Poly> > > constructors;
+  size_t arg;
+  vector<shared_ptr<Constructor>> constructors;
   string ffi;
 };
 

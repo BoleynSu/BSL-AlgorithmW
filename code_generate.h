@@ -24,23 +24,23 @@ struct CodeGenerator {
 
   void codegen(shared_ptr<Expr> expr) {
     switch (expr->T) {
-      case 0:
+      case ExprType::VAR:
         out << "$v_bsl_" << expr->x;
         return;
-      case 1:
+      case ExprType::APP:
         out << "(*((std::function<void*(void*)>*)(";
         codegen(expr->e1);
         out << ")))(";
         codegen(expr->e2);
         out << ")";
         return;
-      case 2:
+      case ExprType::ABS:
         out << "new std::function<void*(void*)>([=](void* "
             << "$v_bsl_" << expr->x << ") -> void* { return ";
         codegen(expr->e);
         out << "; })";
         return;
-      case 3:
+      case ExprType::LET:
         out << "[=]() -> void* { void* "
             << "$tmp_bsl_tmp"
             << " = ";
@@ -50,10 +50,10 @@ struct CodeGenerator {
         codegen(expr->e2);
         out << "; } ()";
         return;
-      case 4:  // TODO FIXME rec x = x + 1
+      case ExprType::REC:  // TODO FIXME rec x = x + 1
         out << "[=]() -> void* {";
         out << " void";
-        for (int i = 0; i < expr->xes.size(); i++) {
+        for (size_t i = 0; i < expr->xes.size(); i++) {
           auto t = find(expr->xes[i].second->type);
           if (t->is_const) {
             out << (i ? ", *" : " *") << "$v_bsl_" << expr->xes[i].first
@@ -71,7 +71,7 @@ struct CodeGenerator {
           }
         }
         out << ";";
-        for (int i = 0; i < expr->xes.size(); i++) {
+        for (size_t i = 0; i < expr->xes.size(); i++) {
           auto t = find(expr->xes[i].second->type);
           out << " { void* $tmp_bsl_tmp = ";
           codegen(expr->xes[i].second);
@@ -88,15 +88,15 @@ struct CodeGenerator {
         codegen(expr->e);
         out << "; } ()";
         return;
-      case 5:
+      case ExprType::CASE:
         out << "[=]() -> void* { void* $tmp_bsl_tmp = ";
         codegen(expr->e);
         out << "; switch ((($t_bsl_" << find(expr->e->type)->D
             << "*)($tmp_bsl_tmp))->T) { ";
-        for (int i = 0; i < expr->pes.size(); i++) {
+        for (size_t i = 0; i < expr->pes.size(); i++) {
           out << "case $t_bsl_" << find(expr->e->type)->D << "::$e_bsl_"
               << expr->pes[i].first[0] << ": {";
-          for (int j = 1; j < expr->pes[i].first.size(); j++) {
+          for (size_t j = 1; j < expr->pes[i].first.size(); j++) {
             out << "void* "
                 << "$v_bsl_" << expr->pes[i].first[j] << " = (($d_bsl_"
                 << expr->pes[i].first[0] << "*)((($t_bsl_"
@@ -109,15 +109,18 @@ struct CodeGenerator {
         }
         out << "} }()";
         return;
-      case 6:
+      case ExprType::FFI:
         out << expr->ffi;
         return;
     }
   }
 
-  void codegen(
-      pair<shared_ptr<map<string, shared_ptr<Data>>>, shared_ptr<Expr>> prog) {
-    auto data = prog.first;
+  void codegen(pair<pair<shared_ptr<map<string, shared_ptr<Data>>>,
+                         shared_ptr<map<string, shared_ptr<Constructor>>>>,
+                    shared_ptr<Expr>>
+                   prog) {
+    auto data = prog.first.first;
+    auto cons = prog.first.second;
     auto expr = prog.second;
     out << "#include <cstddef>" << endl
         << "#include <cstdint>" << endl
@@ -134,27 +137,27 @@ struct CodeGenerator {
            "return e -= sz; "
            "}"
         << endl;
-    map<string, int> cl;
+    map<string, size_t> cl;
     for (auto dai : *data) {
       auto da = dai.second;
       if (da->is_ffi) {
         out << "typedef " << da->ffi << " $t_bsl_" << da->name << ";" << endl;
       } else {
         out << "struct $t_bsl_" << da->name << " { enum {";
-        for (int i = 0; i < da->constructors.size(); i++) {
+        for (size_t i = 0; i < da->constructors.size(); i++) {
           auto c = da->constructors[i];
-          out << (i ? ", " : " ") << "$e_bsl_" << c.first;
+          out << (i ? ", " : " ") << "$e_bsl_" << c->name;
         }
         out << " } T; void* ptr; };" << endl;
-        for (int i = 0; i < da->constructors.size(); i++) {
+        for (size_t i = 0; i < da->constructors.size(); i++) {
           auto c = da->constructors[i];
-          out << "struct $d_bsl_" << c.first << " {";
-          auto t1 = c.second;
+          out << "struct $d_bsl_" << c->name << " {";
+          auto t1 = c->type;
           while (t1->is_poly) {
             t1 = t1->sigma;
           }
           auto t2 = t1->tau;
-          int& j = cl[c.first];
+          size_t& j = cl[c->name];
           while (t2->is_const && t2->D == "->") {
             out << " void* "
                 << "d" << j << ";";
@@ -169,17 +172,17 @@ struct CodeGenerator {
     for (auto dai : *data) {
       auto da = dai.second;
       if (!da->is_ffi) {
-        for (int i = 0; i < da->constructors.size(); i++) {
+        for (size_t i = 0; i < da->constructors.size(); i++) {
           auto c = da->constructors[i];
           auto e = make_shared<Expr>();
-          e->T = 3;
-          e->x = c.first;
+          e->T = ExprType::LET;
+          e->x = c->name;
           auto lam = make_shared<Expr>();
           auto cur = lam;
-          for (int j = 0; j < cl[c.first]; j++) {
+          for (size_t j = 0; j < cl[c->name]; j++) {
             stringstream s;
             s << "arg" << j;
-            cur->T = 2;
+            cur->T = ExprType::ABS;
             cur->x = s.str();
             cur->e = make_shared<Expr>();
             cur = cur->e;
@@ -187,16 +190,16 @@ struct CodeGenerator {
           stringstream s;
           s << "new "
             << "$t_bsl_" << da->name << " { "
-            << "$t_bsl_" << da->name << "::$e_bsl_" << c.first << ", new "
-            << "$d_bsl_" << c.first << "{";
-          for (int j = 0; j < cl[c.first]; j++) {
-            s << " $v_bsl_arg" << j << (j + 1 == cl[c.first] ? "" : ",");
+            << "$t_bsl_" << da->name << "::$e_bsl_" << c->name << ", new "
+            << "$d_bsl_" << c->name << "{";
+          for (size_t j = 0; j < cl[c->name]; j++) {
+            s << " $v_bsl_arg" << j << (j + 1 == cl[c->name] ? "" : ",");
           }
           s << " } }";
-          cur->T = 6;
+          cur->T = ExprType::FFI;
           cur->ffi = s.str();
           e->e1 = lam;
-          e->e1->sig = c.second;
+          e->e1->sig = c->type;
           e->e2 = expr;
           expr = e;
         }

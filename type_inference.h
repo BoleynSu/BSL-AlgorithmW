@@ -64,7 +64,7 @@ shared_ptr<Mono> inst(shared_ptr<Mono> tau,
     auto t = make_shared<Mono>();
     t->is_const = tau->is_const;
     t->D = tau->D;
-    for (int i = 0; i < tau->tau.size(); i++) {
+    for (size_t i = 0; i < tau->tau.size(); i++) {
       t->tau.push_back(inst(tau->tau[i], m));
     }
     return t;
@@ -97,7 +97,7 @@ shared_ptr<Mono> inst(shared_ptr<Poly> sigma) {
 void ftv(set<shared_ptr<Mono>>& f, shared_ptr<Mono> tau) {
   tau = find(tau);
   if (tau->is_const) {
-    for (int i = 0; i < tau->tau.size(); i++) {
+    for (size_t i = 0; i < tau->tau.size(); i++) {
       ftv(f, tau->tau[i]);
     }
   } else {
@@ -141,7 +141,7 @@ shared_ptr<Poly> gen(shared_ptr<map<string, shared_ptr<Poly>>> context,
 
 bool occ(shared_ptr<Mono> a, shared_ptr<Mono> b) {
   if (b->is_const) {
-    for (int i = 0; i < b->tau.size(); i++) {
+    for (size_t i = 0; i < b->tau.size(); i++) {
       if (occ(a, find(b->tau[i]))) {
         return true;
       }
@@ -158,7 +158,7 @@ void unify(shared_ptr<Mono> a, shared_ptr<Mono> b) {
   if (a != b) {
     if (a->is_const && b->is_const && a->D == b->D &&
         a->tau.size() == b->tau.size()) {
-      for (int i = 0; i < a->tau.size(); i++) {
+      for (size_t i = 0; i < a->tau.size(); i++) {
         unify(a->tau[i], b->tau[i]);
       }
     } else if (!a->is_const) {
@@ -193,7 +193,7 @@ void unify_sig(shared_ptr<Mono> a, shared_ptr<Mono> b,
   if (a != b) {
     if (a->is_const && b->is_const && a->D == b->D &&
         a->tau.size() == b->tau.size()) {
-      for (int i = 0; i < a->tau.size(); i++) {
+      for (size_t i = 0; i < a->tau.size(); i++) {
         unify_sig(a->tau[i], b->tau[i], st);
       }
     } else if (!a->is_const) {
@@ -230,9 +230,9 @@ void unify_sig(shared_ptr<Mono> a, shared_ptr<Mono> b,
 
 void infer(shared_ptr<Expr> expr,
            shared_ptr<map<string, shared_ptr<Poly>>> context,
-           map<string, int>& cl) {
+           map<string, size_t>& cl) {
   switch (expr->T) {
-    case 0:
+    case ExprType::VAR:
       if (context->count(expr->x)) {
         expr->type = inst((*context)[expr->x]);
       } else {
@@ -241,7 +241,7 @@ void infer(shared_ptr<Expr> expr,
         cerr << "//" << expr->x << " not in context" << endl;
       }
       break;
-    case 1: {
+    case ExprType::APP: {
       infer(expr->e1, context, cl);
       infer(expr->e2, context, cl);
       expr->type = newvar();
@@ -253,7 +253,7 @@ void infer(shared_ptr<Expr> expr,
       unify(expr->e1->type, t);
       break;
     }
-    case 2: {
+    case ExprType::ABS: {
       auto tau = newvar();
       auto contextx = context->count(expr->x) ? (*context)[expr->x] : nullptr;
       (*context)[expr->x] = make_shared<Poly>(Poly{false, tau});
@@ -270,7 +270,7 @@ void infer(shared_ptr<Expr> expr,
       }
       break;
     }
-    case 3: {
+    case ExprType::LET: {
       infer(expr->e1, context, cl);
       auto contextx = context->count(expr->x) ? (*context)[expr->x] : nullptr;
       (*context)[expr->x] = gen(context, expr->e1->type);
@@ -285,10 +285,10 @@ void infer(shared_ptr<Expr> expr,
       }
       break;
     }
-    case 4: {
+    case ExprType::REC: {
       // begin rec check
       set<string> v;
-      for (int i = 0; i < expr->xes.size(); i++) {
+      for (size_t i = 0; i < expr->xes.size(); i++) {
         if (v.count(expr->xes[i].first)) {
           cerr << "//"
                << "ERROR!" << endl;  // TODO
@@ -301,7 +301,7 @@ void infer(shared_ptr<Expr> expr,
       // end rec check
       vector<shared_ptr<Mono>> taus_1;
       vector<shared_ptr<Poly>> contextx_1;
-      for (int i = 0; i < expr->xes.size(); i++) {
+      for (size_t i = 0; i < expr->xes.size(); i++) {
         if (context->count(expr->xes[i].first)) {
           contextx_1.push_back((*context)[expr->xes[i].first]);
         } else {
@@ -315,11 +315,11 @@ void infer(shared_ptr<Expr> expr,
               make_shared<Poly>(Poly{false, taus_1[i]});
         }
       }
-      for (int i = 0; i < expr->xes.size(); i++) {
+      for (size_t i = 0; i < expr->xes.size(); i++) {
         infer(expr->xes[i].second, context, cl);
         unify(expr->xes[i].second->type, taus_1[i]);
       }
-      for (int i = 0; i < expr->xes.size(); i++) {
+      for (size_t i = 0; i < expr->xes.size(); i++) {
         if (contextx_1[i] == nullptr) {
           context->erase(expr->xes[i].first);
         } else {
@@ -328,10 +328,10 @@ void infer(shared_ptr<Expr> expr,
       }
       vector<shared_ptr<Poly>> taus_2;
       vector<shared_ptr<Poly>> contextx_2;
-      for (int i = 0; i < expr->xes.size(); i++) {
+      for (size_t i = 0; i < expr->xes.size(); i++) {
         taus_2.push_back(gen(context, expr->xes[i].second->type));
       }
-      for (int i = 0; i < expr->xes.size(); i++) {
+      for (size_t i = 0; i < expr->xes.size(); i++) {
         if (context->count(expr->xes[i].first)) {
           contextx_2.push_back((*context)[expr->xes[i].first]);
         } else {
@@ -343,7 +343,7 @@ void infer(shared_ptr<Expr> expr,
       }
       infer(expr->e, context, cl);
       expr->type = expr->e->type;
-      for (int i = 0; i < expr->xes.size(); i++) {
+      for (size_t i = 0; i < expr->xes.size(); i++) {
         if (contextx_2[i] == nullptr) {
           context->erase(expr->xes[i].first);
         } else {
@@ -352,10 +352,10 @@ void infer(shared_ptr<Expr> expr,
       }
       break;
     }
-    case 5: {
+    case ExprType::CASE: {
       // TODO FIXME exhaustive check
       // begin con check
-      for (int i = 0; i < expr->pes.size(); i++) {
+      for (size_t i = 0; i < expr->pes.size(); i++) {
         if (!cl.count(expr->pes[i].first[0]) ||
             cl[expr->pes[i].first[0]] != expr->pes[i].first.size() - 1) {
           cerr << "//"
@@ -365,7 +365,7 @@ void infer(shared_ptr<Expr> expr,
           return;
         }
         set<string> v;
-        for (int j = 1; j < expr->pes[i].first.size(); j++) {
+        for (size_t j = 1; j < expr->pes[i].first.size(); j++) {
           if (v.count(expr->pes[i].first[j])) {
             cerr << "//"
                  << "ERROR!" << endl;  // TODO
@@ -379,11 +379,11 @@ void infer(shared_ptr<Expr> expr,
       // end con check
       if (expr->gadt == nullptr) {
         vector<shared_ptr<Poly>> fns;
-        for (int i = 0; i < expr->pes.size(); i++) {
+        for (size_t i = 0; i < expr->pes.size(); i++) {
           auto tau = inst((*context)[expr->pes[i].first[0]]);
           vector<shared_ptr<Mono>> taus_1;
           vector<shared_ptr<Poly>> contextx_1;
-          for (int j = 1; j < expr->pes[i].first.size(); j++) {
+          for (size_t j = 1; j < expr->pes[i].first.size(); j++) {
             taus_1.push_back(newvar());
             auto t1 = make_shared<Mono>(), t2 = newvar();
             t1->is_const = true;
@@ -397,7 +397,7 @@ void infer(shared_ptr<Expr> expr,
           fn->is_const = true;
           fn->D = "->";
           fn->tau.push_back(tau);
-          for (int j = 1; j < expr->pes[i].first.size(); j++) {
+          for (size_t j = 1; j < expr->pes[i].first.size(); j++) {
             if (context->count(expr->pes[i].first[j])) {
               contextx_1.push_back((*context)[expr->pes[i].first[j]]);
             } else {
@@ -407,7 +407,7 @@ void infer(shared_ptr<Expr> expr,
                 make_shared<Poly>(Poly{false, taus_1[j - 1]});
           }
           infer(expr->pes[i].second, context, cl);
-          for (int j = 1; j < expr->pes[i].first.size(); j++) {
+          for (size_t j = 1; j < expr->pes[i].first.size(); j++) {
             if (contextx_1[j - 1] == nullptr) {
               context->erase(expr->pes[i].first[j]);
             } else {
@@ -424,21 +424,21 @@ void infer(shared_ptr<Expr> expr,
         fn->D = "->";
         fn->tau.push_back(expr->e->type);
         fn->tau.push_back(expr->type);
-        for (int i = 0; i < expr->pes.size(); i++) {
+        for (size_t i = 0; i < expr->pes.size(); i++) {
           unify(fn, inst(fns[i]));
         }
-        for (int i = 0; i < expr->pes.size(); i++) {
+        for (size_t i = 0; i < expr->pes.size(); i++) {
           cerr << "//case " << expr->pes[i].first[0] << " : "
                << to_string(fns[i]) << endl;
         }
       } else {
         vector<shared_ptr<Poly>> fns;
-        for (int i = 0; i < expr->pes.size(); i++) {
+        for (size_t i = 0; i < expr->pes.size(); i++) {
           auto gadt = inst(expr->gadt);
           auto tau = inst((*context)[expr->pes[i].first[0]]);
           vector<shared_ptr<Mono>> taus_1;
           vector<shared_ptr<Poly>> contextx_1;
-          for (int j = 1; j < expr->pes[i].first.size(); j++) {
+          for (size_t j = 1; j < expr->pes[i].first.size(); j++) {
             taus_1.push_back(newvar());
             auto t1 = make_shared<Mono>(), t2 = newvar();
             t1->is_const = true;
@@ -455,7 +455,7 @@ void infer(shared_ptr<Expr> expr,
           fn->tau.push_back(ret);
           unify(fn, gadt);
           fns.push_back(gen(context, fn));
-          for (int j = 1; j < expr->pes[i].first.size(); j++) {
+          for (size_t j = 1; j < expr->pes[i].first.size(); j++) {
             if (context->count(expr->pes[i].first[j])) {
               contextx_1.push_back((*context)[expr->pes[i].first[j]]);
             } else {
@@ -465,7 +465,7 @@ void infer(shared_ptr<Expr> expr,
                 make_shared<Poly>(Poly{false, taus_1[j - 1]});
           }
           infer(expr->pes[i].second, context, cl);
-          for (int j = 1; j < expr->pes[i].first.size(); j++) {
+          for (size_t j = 1; j < expr->pes[i].first.size(); j++) {
             if (contextx_1[j - 1] == nullptr) {
               context->erase(expr->pes[i].first[j]);
             } else {
@@ -484,14 +484,14 @@ void infer(shared_ptr<Expr> expr,
         fn->tau.push_back(expr->e->type);
         fn->tau.push_back(expr->type);
         unify(fn, inst(expr->gadt));
-        for (int i = 0; i < expr->pes.size(); i++) {
+        for (size_t i = 0; i < expr->pes.size(); i++) {
           cerr << "//case " << expr->pes[i].first[0] << " : "
                << to_string(fns[i]) << endl;
         }
       }
       break;
     }
-    case 6: {
+    case ExprType::FFI: {
       expr->type = newvar();
       break;
     }

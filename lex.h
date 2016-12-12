@@ -11,7 +11,7 @@ using namespace std;
 
 struct Position {
   string filename;
-  int beginRow, beginColumn, endRow, endColumn;
+  size_t beginRow, beginColumn, endRow, endColumn;
 };
 ostream& operator<<(ostream& out, const Position& p) {
   out << p.filename << ":[" << p.beginRow << "," << p.beginColumn << "-"
@@ -435,7 +435,7 @@ struct Lexer {
     }
     tokens.push_back({TokenType::END, "", position});
   }
-  Token look_at(int i) { return tokens[i]; }
+  Token look_at(size_t i) { return tokens[i]; }
   Token next() {
     Token token = tokens.front();
     tokens.pop_front();
