@@ -271,6 +271,20 @@ struct Parser {
   }
 
   shared_ptr<Expr> parse_expr_() {
+    auto expr = parse_expr__();
+    while (match(TokenType::IDENTIFIER) || match(TokenType::LEFT_PARENTHESIS) ||
+           match(TokenType::CASE) || match(TokenType::FFI)) {
+      auto t1 = expr;
+      expr = parse_expr__();
+      auto t2 = make_shared<Expr>();
+      t2->T = ExprType::APP;
+      t2->e1 = t1;
+      t2->e2 = expr;
+      expr = t2;
+    }
+    return expr;
+  }
+  shared_ptr<Expr> parse_expr__() {
     auto expr = make_shared<Expr>();
     if (accept(TokenType::IDENTIFIER)) {
       expr->T = ExprType::VAR;
@@ -310,49 +324,6 @@ struct Parser {
       size_t a = t.data.find(sep);
       expr->ffi =
           t.data.substr(a + sep.size(), t.data.size() - (a + 2 * sep.size()));
-    }
-    while (match(TokenType::IDENTIFIER) || match(TokenType::LEFT_PARENTHESIS) ||
-           match(TokenType::CASE) || match(TokenType::FFI)) {
-      auto t1 = expr;
-      expr = make_shared<Expr>();
-      if (accept(TokenType::IDENTIFIER)) {
-        expr->T = ExprType::VAR;
-        expr->x = t.data;
-      } else if (accept(TokenType::LEFT_PARENTHESIS)) {
-        expr = parse_expr();
-        expect(TokenType::RIGHT_PARENTHESIS);
-      } else if (accept(TokenType::CASE)) {
-        expr->T = ExprType::CASE;
-        expr->e = parse_expr();
-        expect(TokenType::OF);
-        expect(TokenType::LEFT_BRACE);
-        while (!match(TokenType::RIGHT_BRACE)) {
-          expr->pes.push_back(make_pair(vector<string>{}, nullptr));
-          do {
-            expect(TokenType::IDENTIFIER);
-            expr->pes.back().first.push_back(t.data);
-          } while (!accept(TokenType::RIGHTARROW));
-          expr->pes.back().second = parse_expr();
-          accept(TokenType::SEMICOLON);
-        }
-        expect(TokenType::RIGHT_BRACE);
-      } else if (accept(TokenType::FFI)) {
-        expr->T = ExprType::FFI;
-        stringstream s(t.data);
-        s.get();
-        s.get();
-        s.get();
-        string sep;
-        s >> sep;
-        size_t a = t.data.find(sep);
-        expr->ffi =
-            t.data.substr(a + sep.size(), t.data.size() - (a + 2 * sep.size()));
-      }
-      auto t2 = make_shared<Expr>();
-      t2->T = ExprType::APP;
-      t2->e1 = t1;
-      t2->e2 = expr;
-      expr = t2;
     }
     return expr;
   }
