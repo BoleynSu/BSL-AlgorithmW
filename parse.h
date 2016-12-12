@@ -314,26 +314,48 @@ struct Parser {
       }
       expr->gadt = g;
       expect(TokenType::LEFT_BRACE);
+      string data_name;
+      set<string> st;
       do {
         expr->pes.push_back(make_pair(vector<string>{}, nullptr));
         expect(TokenType::IDENTIFIER);
-        if (expr->pes.back().first.empty()) {
-          if (!constructor_decl->count(t.data)) {
-            string data = t.data;
-            if (data.length() > 78) {
-              data = data.substr(0, 75) + "...";
-            }
-            cerr << "parser: " << t.position << " constructor not found" << endl
-                 << "`" << data << "`" << endl;
-            exit(EXIT_FAILURE);
+        if (!constructor_decl->count(t.data)) {
+          string data = t.data;
+          if (data.length() > 78) {
+            data = data.substr(0, 75) + "...";
           }
+          cerr << "parser: " << t.position << " constructor not found" << endl
+               << "`" << data << "`" << endl;
+          exit(EXIT_FAILURE);
         }
+        if (st.count(t.data)) {
+          string data = t.data;
+          if (data.length() > 78) {
+            data = data.substr(0, 75) + "...";
+          }
+          cerr << "parser: " << t.position << " constructors conflict" << endl
+               << "`" << data << "`" << endl;
+          exit(EXIT_FAILURE);
+        }
+        st.insert(t.data);
         expr->pes.back().first.push_back(t.data);
         auto c = (*constructor_decl)[expr->pes.back().first.front()];
-        set<string> st;
+        if (data_name.empty()) {
+          data_name = c->data_name;
+        } else if (data_name != c->data_name) {
+          string data = t.data;
+          if (data.length() > 78) {
+            data = data.substr(0, 75) + "...";
+          }
+          cerr << "parser: " << t.position << " constructor of " << data_name
+               << " expected, but found" << endl
+               << "`" << data << "`" << endl;
+          exit(EXIT_FAILURE);
+        }
+        set<string> st_;
         for (size_t i = 0; i < c->arg; i++) {
           expect(TokenType::IDENTIFIER);
-          if (st.count(t.data)) {
+          if (st_.count(t.data)) {
             string data = t.data;
             if (data.length() > 78) {
               data = data.substr(0, 75) + "...";
@@ -343,7 +365,7 @@ struct Parser {
                  << "`" << data << "`" << endl;
             exit(EXIT_FAILURE);
           }
-          st.insert(t.data);
+          st_.insert(t.data);
           expr->pes.back().first.push_back(t.data);
         }
         expect(TokenType::RIGHTARROW);

@@ -113,6 +113,36 @@ bool occ(shared_ptr<Mono> a, shared_ptr<Mono> b) {
   }
 }
 
+bool try_unify(shared_ptr<Mono> a, shared_ptr<Mono> b) {
+  a = find(a);
+  b = find(b);
+  if (a != b) {
+    if (a->is_const && b->is_const && a->D == b->D &&
+        a->tau.size() == b->tau.size()) {
+      for (size_t i = 0; i < a->tau.size(); i++) {
+        if (!try_unify(a->tau[i], b->tau[i])) {
+          return false;
+        }
+      }
+    } else if (!a->is_const) {
+      if (occ(a, b)) {
+        return false;
+      } else {
+        a->alpha = b;
+      }
+    } else if (!b->is_const) {
+      if (occ(b, a)) {
+        return false;
+      } else {
+        b->alpha = a;
+      }
+    } else {
+      return false;
+    }
+  }
+  return true;
+}
+
 void unify(shared_ptr<Mono> a, shared_ptr<Mono> b) {
   a = find(a);
   b = find(b);
@@ -186,7 +216,7 @@ void unify_sig(shared_ptr<Mono> a, shared_ptr<Mono> b,
 void infer(shared_ptr<Expr> expr,
            shared_ptr<map<string, shared_ptr<Poly>>> context,
            pair<shared_ptr<map<string, shared_ptr<Data>>>,
-                shared_ptr<map<string, shared_ptr<Constructor>>>>& cl) {
+                shared_ptr<map<string, shared_ptr<Constructor>>>>& dnc) {
   switch (expr->T) {
     case ExprType::VAR:
       if (context->count(expr->x)) {
@@ -197,8 +227,8 @@ void infer(shared_ptr<Expr> expr,
       }
       break;
     case ExprType::APP: {
-      infer(expr->e1, context, cl);
-      infer(expr->e2, context, cl);
+      infer(expr->e1, context, dnc);
+      infer(expr->e2, context, dnc);
       expr->type = newvar();
       auto t = make_shared<Mono>();
       t->is_const = true;
@@ -212,7 +242,7 @@ void infer(shared_ptr<Expr> expr,
       auto tau = newvar();
       auto contextx = context->count(expr->x) ? (*context)[expr->x] : nullptr;
       (*context)[expr->x] = make_shared<Poly>(Poly{false, tau});
-      infer(expr->e, context, cl);
+      infer(expr->e, context, dnc);
       expr->type = make_shared<Mono>();
       expr->type->is_const = true;
       expr->type->D = "->";
@@ -226,12 +256,12 @@ void infer(shared_ptr<Expr> expr,
       break;
     }
     case ExprType::LET: {
-      infer(expr->e1, context, cl);
+      infer(expr->e1, context, dnc);
       auto contextx = context->count(expr->x) ? (*context)[expr->x] : nullptr;
       (*context)[expr->x] = gen(context, expr->e1->type);
       cerr << "//" << expr->x << " : " << to_string((*context)[expr->x])
            << endl;
-      infer(expr->e2, context, cl);
+      infer(expr->e2, context, dnc);
       expr->type = expr->e2->type;
       if (contextx == nullptr) {
         context->erase(expr->x);
@@ -258,7 +288,7 @@ void infer(shared_ptr<Expr> expr,
         }
       }
       for (size_t i = 0; i < expr->xes.size(); i++) {
-        infer(expr->xes[i].second, context, cl);
+        infer(expr->xes[i].second, context, dnc);
         unify(expr->xes[i].second->type, taus_1[i]);
       }
       for (size_t i = 0; i < expr->xes.size(); i++) {
@@ -283,7 +313,7 @@ void infer(shared_ptr<Expr> expr,
         cerr << "//" << expr->xes[i].first << " : "
              << to_string((*context)[expr->xes[i].first]) << endl;
       }
-      infer(expr->e, context, cl);
+      infer(expr->e, context, dnc);
       expr->type = expr->e->type;
       for (size_t i = 0; i < expr->xes.size(); i++) {
         if (contextx_2[i] == nullptr) {
@@ -295,118 +325,102 @@ void infer(shared_ptr<Expr> expr,
       break;
     }
     case ExprType::CASE: {
+      map<string, shared_ptr<Poly>> fns;
+      for (size_t i = 0; i < expr->pes.size(); i++) {
+        auto tau = inst((*context)[expr->pes[i].first[0]]);
+        vector<shared_ptr<Mono>> taus_1;
+        vector<shared_ptr<Poly>> contextx_1;
+        for (size_t j = 1; j < expr->pes[i].first.size(); j++) {
+          taus_1.push_back(newvar());
+          auto t1 = make_shared<Mono>(), t2 = newvar();
+          t1->is_const = true;
+          t1->D = "->";
+          t1->tau.push_back(taus_1[j - 1]);
+          t1->tau.push_back(t2);
+          unify(t1, tau);
+          tau = t2;
+        }
+        shared_ptr<Mono> fn = make_shared<Mono>();
+        fn->is_const = true;
+        fn->D = "->";
+        fn->tau.push_back(tau);
+        for (size_t j = 1; j < expr->pes[i].first.size(); j++) {
+          if (context->count(expr->pes[i].first[j])) {
+            contextx_1.push_back((*context)[expr->pes[i].first[j]]);
+          } else {
+            contextx_1.push_back(nullptr);
+          }
+          (*context)[expr->pes[i].first[j]] =
+              make_shared<Poly>(Poly{false, taus_1[j - 1]});
+        }
+        infer(expr->pes[i].second, context, dnc);
+        for (size_t j = 1; j < expr->pes[i].first.size(); j++) {
+          if (contextx_1[j - 1] == nullptr) {
+            context->erase(expr->pes[i].first[j]);
+          } else {
+            (*context)[expr->pes[i].first[j]] = contextx_1[j - 1];
+          }
+        }
+        fn->tau.push_back(expr->pes[i].second->type);
+        fns[expr->pes[i].first[0]] = gen(context, fn);
+      }
+
       if (expr->gadt == nullptr) {
-        vector<shared_ptr<Poly>> fns;
-        for (size_t i = 0; i < expr->pes.size(); i++) {
-          auto tau = inst((*context)[expr->pes[i].first[0]]);
-          vector<shared_ptr<Mono>> taus_1;
-          vector<shared_ptr<Poly>> contextx_1;
-          for (size_t j = 1; j < expr->pes[i].first.size(); j++) {
-            taus_1.push_back(newvar());
-            auto t1 = make_shared<Mono>(), t2 = newvar();
-            t1->is_const = true;
-            t1->D = "->";
-            t1->tau.push_back(taus_1[j - 1]);
-            t1->tau.push_back(t2);
-            unify(t1, tau);
-            tau = t2;
-          }
-          shared_ptr<Mono> fn = make_shared<Mono>();
-          fn->is_const = true;
-          fn->D = "->";
-          fn->tau.push_back(tau);
-          for (size_t j = 1; j < expr->pes[i].first.size(); j++) {
-            if (context->count(expr->pes[i].first[j])) {
-              contextx_1.push_back((*context)[expr->pes[i].first[j]]);
-            } else {
-              contextx_1.push_back(nullptr);
-            }
-            (*context)[expr->pes[i].first[j]] =
-                make_shared<Poly>(Poly{false, taus_1[j - 1]});
-          }
-          infer(expr->pes[i].second, context, cl);
-          for (size_t j = 1; j < expr->pes[i].first.size(); j++) {
-            if (contextx_1[j - 1] == nullptr) {
-              context->erase(expr->pes[i].first[j]);
-            } else {
-              (*context)[expr->pes[i].first[j]] = contextx_1[j - 1];
-            }
-          }
-          fn->tau.push_back(expr->pes[i].second->type);
-          fns.push_back(gen(context, fn));
+        shared_ptr<Mono> gadt = make_shared<Mono>();
+        for (auto& fn : fns) {
+          unify(gadt, inst(fn.second));
         }
-        infer(expr->e, context, cl);
-        expr->type = newvar();
-        shared_ptr<Mono> fn = make_shared<Mono>();
+        expr->gadt = gen(context, gadt);
+      }
+      for (auto& fn : fns) {
+        cerr << "//case " << fn.first << " : " << to_string(fn.second) << endl;
+      }
+      cerr << "//: " << to_string(expr->gadt) << endl;
+      auto c = (*dnc.first)[(*dnc.second)[fns.begin()->first]->data_name]
+                   ->constructors;
+      for (size_t i = 0; i < c.size(); i++) {
+        auto tau = inst(c[i]->type);
+        vector<shared_ptr<Mono>> taus_1;
+        vector<shared_ptr<Poly>> contextx_1;
+        for (size_t j = 0; j < c[i]->arg; j++) {
+          taus_1.push_back(newvar());
+          auto t1 = make_shared<Mono>(), t2 = newvar();
+          t1->is_const = true;
+          t1->D = "->";
+          t1->tau.push_back(taus_1[j]);
+          t1->tau.push_back(t2);
+          unify(t1, tau);
+          tau = t2;
+        }
+        shared_ptr<Mono> fn = make_shared<Mono>(), ret = newvar();
         fn->is_const = true;
         fn->D = "->";
-        fn->tau.push_back(expr->e->type);
-        fn->tau.push_back(expr->type);
-        for (size_t i = 0; i < expr->pes.size(); i++) {
-          unify(fn, inst(fns[i]));
-        }
-        for (size_t i = 0; i < expr->pes.size(); i++) {
-          cerr << "//case " << expr->pes[i].first[0] << " : "
-               << to_string(fns[i]) << endl;
-        }
-      } else {
-        vector<shared_ptr<Poly>> fns;
-        for (size_t i = 0; i < expr->pes.size(); i++) {
-          auto gadt = inst(expr->gadt);
-          auto tau = inst((*context)[expr->pes[i].first[0]]);
-          vector<shared_ptr<Mono>> taus_1;
-          vector<shared_ptr<Poly>> contextx_1;
-          for (size_t j = 1; j < expr->pes[i].first.size(); j++) {
-            taus_1.push_back(newvar());
-            auto t1 = make_shared<Mono>(), t2 = newvar();
-            t1->is_const = true;
-            t1->D = "->";
-            t1->tau.push_back(taus_1[j - 1]);
-            t1->tau.push_back(t2);
-            unify(t1, tau);
-            tau = t2;
+        fn->tau.push_back(tau);
+        fn->tau.push_back(ret);
+        if (try_unify(fn, inst(expr->gadt))) {
+          if (fns.count(c[i]->name)) {
+            set<shared_ptr<Mono>> st;
+            unify_sig(inst(fns[c[i]->name]), fn, st);
+          } else {
+            cerr << "type error: non-exhaustive patterns `" << c[i]->name << "`"
+                 << endl;
+            exit(EXIT_FAILURE);
           }
-          shared_ptr<Mono> fn = make_shared<Mono>(), ret = newvar();
-          fn->is_const = true;
-          fn->D = "->";
-          fn->tau.push_back(tau);
-          fn->tau.push_back(ret);
-          unify(fn, gadt);
-          fns.push_back(gen(context, fn));
-          for (size_t j = 1; j < expr->pes[i].first.size(); j++) {
-            if (context->count(expr->pes[i].first[j])) {
-              contextx_1.push_back((*context)[expr->pes[i].first[j]]);
-            } else {
-              contextx_1.push_back(nullptr);
-            }
-            (*context)[expr->pes[i].first[j]] =
-                make_shared<Poly>(Poly{false, taus_1[j - 1]});
+        } else {
+          if (fns.count(c[i]->name)) {
+            unify(fn, inst(expr->gadt));
+            assert(false);
           }
-          infer(expr->pes[i].second, context, cl);
-          for (size_t j = 1; j < expr->pes[i].first.size(); j++) {
-            if (contextx_1[j - 1] == nullptr) {
-              context->erase(expr->pes[i].first[j]);
-            } else {
-              (*context)[expr->pes[i].first[j]] = contextx_1[j - 1];
-            }
-          }
-          unify(expr->pes[i].second->type, ret);
-          set<shared_ptr<Mono>> st;
-          unify_sig(fn, inst(fns.back()), st);
-        }
-        infer(expr->e, context, cl);
-        expr->type = newvar();
-        shared_ptr<Mono> fn = make_shared<Mono>();
-        fn->is_const = true;
-        fn->D = "->";
-        fn->tau.push_back(expr->e->type);
-        fn->tau.push_back(expr->type);
-        unify(fn, inst(expr->gadt));
-        for (size_t i = 0; i < expr->pes.size(); i++) {
-          cerr << "//case " << expr->pes[i].first[0] << " : "
-               << to_string(fns[i]) << endl;
         }
       }
+      infer(expr->e, context, dnc);
+      expr->type = newvar();
+      shared_ptr<Mono> fn = make_shared<Mono>();
+      fn->is_const = true;
+      fn->D = "->";
+      fn->tau.push_back(expr->e->type);
+      fn->tau.push_back(expr->type);
+      unify(fn, inst(expr->gadt));
       break;
     }
     case ExprType::FFI: {
