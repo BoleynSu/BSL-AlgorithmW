@@ -1,0 +1,7 @@
+#!/bin/bash
+script=`dirname \`realpath $0\``
+g++ $script/../main.cpp -o $script/bsl-compiler -Wall &&
+($script/bsl-compiler $1 >$1.cpp; rm $script/bsl-compiler) &&
+(g++ -O3 $1.cpp -o $1.out; rm $1.cpp) &&
+($1.out; rm $1.out)
+
