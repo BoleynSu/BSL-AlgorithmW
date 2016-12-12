@@ -1,4 +1,4 @@
-#!/home/jiaosu/workspace/algorithm-w/example/bslc
+#!/usr/bin/env bsl
 
 data Pair a b where {
   Pair:forall a.forall b.a->b->Pair a b;

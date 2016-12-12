@@ -1,4 +1,4 @@
-#!/home/jiaosu/workspace/algorithm-w/example/bslc
+#!/usr/bin/env bsl
 
 data Int where ffi ` void `
 
@@ -166,7 +166,7 @@ True->Nil;
 False -> Cons (case l of {Cons h _->h;Nil -> undefined}) (take (sub x one) (case l of {Cons _ t->t;Nil->undefined}))
 } in
 rec a = Cons one b and b = Cons two a in
-let _ = runIO (bind (return (take ten a)) putList) in
+--let _ = runIO (bind (return (take ten a)) putList) in
 
 let _ =
 runIO (bind getList \list ->

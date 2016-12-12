@@ -1,4 +1,4 @@
-#!/home/jiaosu/workspace/algorithm-w/example/bslc
+#!/usr/bin/env bsl
 
 data Int where ffi ` void `
 
