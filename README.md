@@ -10,5 +10,6 @@ It will sort all inputed numbers. Use CTRL+D to end your input.
 
 # change log
 
-GADT is supported now but I am not sure if it's bug free.
+GADT is supported now but I am not 100% sure if it's bug free.
 
+Error message is more user friendly now.
