@@ -2,8 +2,8 @@
 #define SU_BOLEYN_BSL_LEX_H
 
 #include <cstdio>
+#include <cstdlib>
 #include <deque>
-#include <fstream>
 #include <iostream>
 #include <string>
 
