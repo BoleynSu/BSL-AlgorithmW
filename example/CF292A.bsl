@@ -35,6 +35,8 @@ data Pair a b where {
   Pair:forall a.forall b.a->b->Pair a b
 }
 
+let undefined = ffi ` nullptr ` in
+
 let fmap = \f -> \x -> case x of {
   Write s k -> Write s (f k);
   Read k -> Read (\s -> f (k s))
@@ -53,6 +55,18 @@ rec runIO = \x -> case x of {
     Read g -> let x:Maybe Int = ffi ` [=]() -> void* { int x; if (std::scanf("%d", &x) == 1) return (*((std::function<void*(void*)>*)$v_bsl_Just))((void*) (std::intptr_t) x); else return $v_bsl_Nothing; }() `
               in runIO (g x)
   }
+} in
+
+let fst = \x -> case x of {
+  Pair f _ -> f
+} in
+let snd = \x -> case x of {
+  Pair _ s -> s
+} in
+
+let tail = \x -> case x of {
+  Cons _ t -> t;
+  Nil -> undefined
 } in
 
 let bnot = \x -> case x of {
@@ -112,7 +126,9 @@ rec putList = \list -> case list of {
                putList xs
 } in
 
-let undefined = ffi ` nullptr ` in
+let zero = ffi ` (void*)0 `in
+
+-- The actual solution of CF292A
 rec toList = \x -> case x of {
   Nil->Nil;
   Cons h t -> case t of {
@@ -121,7 +137,6 @@ rec toList = \x -> case x of {
   }
 } in
 
-let zero = ffi ` (void*)0 `in
 let getAns = \lst ->
   rec
     getAns_ = \l -> \unfinishedTask -> \currentTime -> \maxTask ->
@@ -136,16 +151,6 @@ let getAns = \lst ->
       }
   in getAns_ lst zero zero zero
 in
-let fst = \x -> case x of {
-  Pair f _ -> f
-} in
-let snd = \x -> case x of {
-  Pair _ s -> s
-} in
-let tail = \x -> case x of {
-  Cons _ t -> t;
-  Nil -> undefined
-} in
 
 let main =
   bind getList \numbers->
