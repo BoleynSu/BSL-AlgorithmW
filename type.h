@@ -1,6 +1,7 @@
 #ifndef SU_BOLEYN_BSL_TYPE_H
 #define SU_BOLEYN_BSL_TYPE_H
 
+#include <iostream>
 #include <memory>
 #include <string>
 #include <vector>

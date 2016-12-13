@@ -13,7 +13,7 @@
 #include "expr.h"
 #include "parse.h"
 #include "type.h"
-#include "type_inference.h"
+#include "type_infer.h"
 
 using namespace std;
 

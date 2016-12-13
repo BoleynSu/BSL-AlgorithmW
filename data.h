@@ -3,10 +3,9 @@
 
 #include <memory>
 #include <string>
-#include <utility>
 #include <vector>
 
-#include "expr.h"
+struct Poly;
 
 using namespace std;
 

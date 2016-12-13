@@ -1,6 +1,7 @@
-#ifndef SU_BOLEYN_BSL_TYPE_INFERENCE_H
-#define SU_BOLEYN_BSL_TYPE_INFERENCE_H
+#ifndef SU_BOLEYN_BSL_TYPE_INFER_H
+#define SU_BOLEYN_BSL_TYPE_INFER_H
 
+#include <cassert>
 #include <cstdlib>
 #include <iostream>
 #include <map>
