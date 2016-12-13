@@ -33,14 +33,20 @@ struct CodeGenerator {
     return "$v_bsl_" + v;
   }
   string tmp() { return "$tmp_bsl"; }
-  string type(string t) { return "$type_bsl_" + t; }
-  string tag(string t) { return "$tag_bsl_" + t; }
+  string type(const string& t) {
+    if (t == "->") {
+      return "std::function<void*(void*)>";
+    } else {
+      return "$type_bsl_" + t;
+    }
+  }
+  string tag(const string& t) { return "$tag_bsl_" + t; }
   string arg(size_t i) {
     stringstream ss;
     ss << "arg" << i;
     return ss.str();
   }
-  string ffi(string f) { return f; }
+  string ffi(const string& f) { return f; }
 
   void codegen(shared_ptr<Expr> expr) {
     switch (expr->T) {
@@ -48,14 +54,14 @@ struct CodeGenerator {
         out << var(expr->x);
         return;
       case ExprType::APP:
-        out << "(*((std::function<void*(void*)>*)(";
+        out << "(*((" << type("->") << "*)(";
         codegen(expr->e1);
         out << ")))(";
         codegen(expr->e2);
         out << ")";
         return;
       case ExprType::ABS:
-        out << "new std::function<void*(void*)>([=](void* " << var(expr->x)
+        out << "new " << type("->") << "([=](void* " << var(expr->x)
             << ") -> void* { return ";
         codegen(expr->e);
         out << "; })";
@@ -68,18 +74,12 @@ struct CodeGenerator {
         out << "; } ()";
         return;
       case ExprType::REC:  // TODO FIXME rec x = x + 1
-        out << "[=]() -> void* {";
-        out << " void";
+        out << "[=]() -> void* { void";
         for (size_t i = 0; i < expr->xes.size(); i++) {
           auto t = find(expr->xes[i].second->type);
           if (t->is_const) {
-            out << (i ? ", *" : " *") << var(expr->xes[i].first) << " = new ";
-            if (t->D == "->") {
-              out << "std::function<void*(void*)>";
-            } else {
-              out << type(t->D);
-            }
-            out << "()";
+            out << (i ? ", *" : " *") << var(expr->xes[i].first) << " = new "
+                << type(t->D) << "()";
           } else {
             cerr << "code generator:" << endl
                  << "rec " << expr->xes[i].first << " = "
@@ -90,40 +90,52 @@ struct CodeGenerator {
         out << ";";
         for (size_t i = 0; i < expr->xes.size(); i++) {
           auto t = find(expr->xes[i].second->type);
-          out << " { void* " << tmp() << " = ";
+          out << " new (" << var(expr->xes[i].first) << ") " << type(t->D)
+              << "(*((" << type(t->D) << "*)";
           codegen(expr->xes[i].second);
-          out << "; std::memcpy(" << var(expr->xes[i].first) << ", " << tmp()
-              << ", sizeof (";
-          if (t->D == "->") {
-            out << "std::function<void*(void*)>";
-          } else {
-            out << type(t->D);
-          }
-          out << ")); }";
+          out << "));";
         }
         out << " return ";
         codegen(expr->e);
         out << "; } ()";
         return;
-      case ExprType::CASE:
+      case ExprType::CASE: {
         out << "[=]() -> void* { void* " << tmp() << " = ";
         codegen(expr->e);
-        out << "; switch (((" << type(find(expr->e->type)->D) << "*)(" << tmp()
-            << "))->T) { ";
-        for (size_t i = 0; i < expr->pes.size(); i++) {
-          out << "case " << type(find(expr->e->type)->D)
-              << "::" << tag(expr->pes[i].first[0]) << ": {";
-          for (size_t j = 1; j < expr->pes[i].first.size(); j++) {
-            out << " void* " << var(expr->pes[i].first[j]) << " = (("
-                << type(find(expr->e->type)->D) << "*)(" << tmp() << "))->"
-                << arg(j - 1) << ";";
+        out << "; ";
+        assert(expr->pes.size() >= 1);
+        auto t = expr->gadt;
+        while (t->is_poly) {
+          t = t->sigma;
+        }
+        string ty = t->tau->tau[0]->D;
+        if (expr->pes.size() > 1) {
+          out << "switch (((" << type(ty) << "*)(" << tmp() << "))->T) { ";
+          for (size_t i = 0; i < expr->pes.size(); i++) {
+            out << "case " << type(ty) << "::" << tag(expr->pes[i].first[0])
+                << ": {";
+            for (size_t j = 1; j < expr->pes[i].first.size(); j++) {
+              out << " void* " << var(expr->pes[i].first[j]) << " = (("
+                  << type(ty) << "*)(" << tmp() << "))->" << arg(j - 1) << ";";
+            }
+            out << " return ";
+            codegen(expr->pes[i].second);
+            out << "; } ";
+          }
+          out << "} ";
+        } else {
+          out << "{";
+          for (size_t j = 1; j < expr->pes.front().first.size(); j++) {
+            out << " void* " << var(expr->pes.front().first[j]) << " = (("
+                << type(ty) << "*)(" << tmp() << "))->" << arg(j - 1) << ";";
           }
           out << " return ";
-          codegen(expr->pes[i].second);
+          codegen(expr->pes.front().second);
           out << "; } ";
         }
-        out << "} }()";
+        out << "}()";
         return;
+      }
       case ExprType::FFI:
         out << ffi(expr->ffi);
         return;
@@ -162,12 +174,15 @@ struct CodeGenerator {
           auto c = da->constructors[i];
           maxarg = max(maxarg, c->arg);
         }
-        out << "struct " << type(da->name) << " { enum {";
-        for (size_t i = 0; i < da->constructors.size(); i++) {
-          auto c = da->constructors[i];
-          out << (i ? ", " : " ") << tag(c->name);
+        out << "struct " << type(da->name) << " { ";
+        if (da->constructors.size() > 1) {
+          out << "enum {";
+          for (size_t i = 0; i < da->constructors.size(); i++) {
+            auto c = da->constructors[i];
+            out << (i ? ", " : " ") << tag(c->name);
+          }
+          out << " } T; ";
         }
-        out << " } T; ";
         for (size_t i = 0; i < maxarg; i++) {
           out << "void *" << arg(i) << "; ";
         }
@@ -192,12 +207,14 @@ struct CodeGenerator {
             cur = cur->e;
           }
           stringstream s;
-          s << "new " << type(da->name) << " { " << type(da->name)
-            << "::" << tag(c->name);
-          for (size_t j = 0; j < c->arg; j++) {
-            s << ", " << var(arg(j));
+          s << "new " << type(da->name) << " { ";
+          if (da->constructors.size() > 1) {
+            s << type(da->name) << "::" << tag(c->name) << ", ";
           }
-          s << " }";
+          for (size_t j = 0; j < c->arg; j++) {
+            s << var(arg(j)) << (j + 1 == c->arg ? " " : ", ");
+          }
+          s << "}";
           cur->T = ExprType::FFI;
           cur->ffi = s.str();
           e->e1 = lam;

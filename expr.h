@@ -1,8 +1,6 @@
 #ifndef SU_BOLEYN_BSL_EXPR_H
 #define SU_BOLEYN_BSL_EXPR_H
 
-#include <cassert>
-#include <cstdlib>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -29,19 +27,33 @@ struct Expr {
   shared_ptr<Poly> sig, gadt;
   Position pos;
 
-  string to_string() {
+  string to_string(bool newline = false, size_t indent = 0,
+                   const string& indents = "") {
+    stringstream s;
+    if (newline) {
+      s << endl;
+      for (size_t i = 0; i < indent; i++) {
+        s << indents;
+      }
+    }
     switch (T) {
       case ExprType::VAR:
-        return x;
+        s << x;
+        break;
       case ExprType::APP:
-        return e1->to_string() + " (" + e2->to_string() + ")";
+        s << e1->to_string(false, indent, indents) << " ("
+          << e2->to_string(false, indent, indents) << ")";
+        break;
       case ExprType::ABS:
-        return "(\\" + x + "->" + e->to_string() + ")";
+        s << "(\\" << x << "->" << e->to_string(true, indent + 1, indents)
+          << ")";
+        break;
       case ExprType::LET:
-        return "(let " + x + " = " + e1->to_string() + " in " +
-               e2->to_string() + ")";
+        s << "(let " << x << " = " << e1->to_string(false, indent + 1, indents)
+          << " in" << endl
+          << e2->to_string(false, indent, indents) << ")";
+        break;
       case ExprType::REC: {
-        stringstream s;
         s << "(rec";
         for (size_t i = 0; i < xes.size(); i++) {
           if (i) {
@@ -49,30 +61,33 @@ struct Expr {
           } else {
             s << " ";
           }
-          s << xes[i].first << " = " << xes[i].second->to_string();
+          s << xes[i].first << " = "
+            << xes[i].second->to_string(false, indent + 1, indents);
         }
-        s << " in " << e->to_string() << ")";
-        return s.str();
-      }
+        s << " in " << e->to_string(false, indent, indents) << ")";
+      } break;
       case ExprType::CASE: {
-        stringstream s;
-        s << "(case " << e->to_string() << " of {";
+        s << "case " << e->to_string(false, indent, indents) << " of {" << endl;
         for (size_t i = 0; i < pes.size(); i++) {
+          for (size_t i = 0; i < indent + 1; i++) {
+            s << indents;
+          }
           for (size_t j = 0; j < pes[i].first.size(); j++) {
             s << pes[i].first[j] << (j + 1 == pes[i].first.size() ? "" : " ");
           }
-          s << "->" << pes[i].second->to_string()
-            << (i + 1 == pes.size() ? "" : ";");
+          s << "->" << pes[i].second->to_string(true, indent + 2, indents)
+            << (i + 1 == pes.size() ? "" : ";") << endl;
         }
-        s << "})";
-        return s.str();
-      }
+        for (size_t i = 0; i < indent; i++) {
+          s << indents;
+        }
+        s << "}";
+      } break;
       case ExprType::FFI:
-        return ffi;
-      default:
-        assert(false);
-        exit(EXIT_FAILURE);
+        s << "ffi `" << ffi << "`";
+        break;
     }
+    return s.str();
   }
 };
 
