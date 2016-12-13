@@ -13,3 +13,6 @@ It will sort all inputed numbers. Use CTRL+D to end your input.
 GADT is supported now but I am not 100% sure if it's bug free.
 
 Error message is more user friendly now.
+
+C is the target language now.
+
