@@ -167,7 +167,7 @@ void unify(shared_ptr<Mono> a, shared_ptr<Mono> b) {
         b->alpha = a;
       }
     } else {
-      cerr << "type error: " << to_string(a) << " != " << to_string(b) << endl;
+      cerr << "type error: " << to_string(a) << " /= " << to_string(b) << endl;
       exit(EXIT_FAILURE);
     }
   }
@@ -259,7 +259,7 @@ void infer(shared_ptr<Expr> expr,
       infer(expr->e1, context, dnc);
       auto contextx = context->count(expr->x) ? (*context)[expr->x] : nullptr;
       (*context)[expr->x] = gen(context, expr->e1->type);
-      //cerr << "//" << expr->x << " : " << to_string((*context)[expr->x])
+      // cerr << "//" << expr->x << " : " << to_string((*context)[expr->x])
       //     << endl;
       infer(expr->e2, context, dnc);
       expr->type = expr->e2->type;
@@ -310,7 +310,7 @@ void infer(shared_ptr<Expr> expr,
           contextx_2.push_back(nullptr);
         }
         (*context)[expr->xes[i].first] = taus_2[i];
-        //cerr << "//" << expr->xes[i].first << " : "
+        // cerr << "//" << expr->xes[i].first << " : "
         //     << to_string((*context)[expr->xes[i].first]) << endl;
       }
       infer(expr->e, context, dnc);
@@ -372,10 +372,11 @@ void infer(shared_ptr<Expr> expr,
         }
         expr->gadt = gen(context, gadt);
       }
-      //for (auto& fn : fns) {
-      //  cerr << "//case " << fn.first << " : " << to_string(fn.second) << endl;
+      // for (auto& fn : fns) {
+      //  cerr << "//case " << fn.first << " : " << to_string(fn.second) <<
+      //  endl;
       //}
-      //cerr << "//: " << to_string(expr->gadt) << endl;
+      // cerr << "//: " << to_string(expr->gadt) << endl;
       auto c = (*dnc.first)[(*dnc.second)[fns.begin()->first]->data_name]
                    ->constructors;
       for (size_t i = 0; i < c.size(); i++) {
