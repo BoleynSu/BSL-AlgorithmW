@@ -2,6 +2,7 @@
 #define SU_BOLEYN_BSL_EXPR_H
 
 #include <memory>
+#include <set>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -26,6 +27,7 @@ struct Expr {
   shared_ptr<Mono> type;
   shared_ptr<Poly> sig, gadt;
   Position pos;
+  set<string> fv;
 
   string to_string(bool newline = false, size_t indent = 0,
                    const string& indents = "") {

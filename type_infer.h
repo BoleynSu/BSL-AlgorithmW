@@ -80,7 +80,7 @@ shared_ptr<Poly> gen(shared_ptr<map<string, shared_ptr<Poly>>> context,
                      shared_ptr<Mono> tau) {
   tau = find(tau);
   set<shared_ptr<Mono>> f;
-  for (auto c : *context) {
+  for (auto& c : *context) {
     set<shared_ptr<Mono>> fi;
     ftv(fi, c.second);
     f.insert(fi.begin(), fi.end());
