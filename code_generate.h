@@ -24,7 +24,14 @@ struct CodeGenerator {
     codegen(parser.parse());
   }
 
-  string var(string v) { return "$v_bsl_" + v; }
+  string var(string v) {
+    for (size_t i = 0; i < v.length(); i++) {
+      if (v[i] == '\'') {
+        v[i] = '$';
+      }
+    }
+    return "$v_bsl_" + v;
+  }
   string tmp() { return "$tmp_bsl"; }
   string type(string t) { return "$type_bsl_" + t; }
   string tag(string t) { return "$tag_bsl_" + t; }
@@ -186,11 +193,11 @@ struct CodeGenerator {
           }
           stringstream s;
           s << "new " << type(da->name) << " { " << type(da->name)
-            << "::" << tag(c->name) << ", ";
+            << "::" << tag(c->name);
           for (size_t j = 0; j < c->arg; j++) {
-            s << var(arg(j)) << (j + 1 == c->arg ? " " : ", ");
+            s << ", " << var(arg(j));
           }
-          s << "}";
+          s << " }";
           cur->T = ExprType::FFI;
           cur->ffi = s.str();
           e->e1 = lam;
