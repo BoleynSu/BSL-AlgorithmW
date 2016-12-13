@@ -125,9 +125,9 @@ struct CodeGenerator {
       }
         return;
       case ExprType::ABS: {
-        map<string, size_t> env;
+        map<string, size_t> env_;
         for (auto& fv : expr->fv) {
-          env.insert(make_pair(fv, env.size()));
+          env_.insert(make_pair(fv, env_.size()));
         }
         size_t fn_idx = fns.size();
         fns.push_back(make_shared<stringstream>());
@@ -136,28 +136,22 @@ struct CodeGenerator {
              << var(expr->x) << ", " << BSL_RT_VAR_T << " " << BSL_ENV
              << "[]) {" << endl;
         nout << " return ";
-        codegen(nout, expr->e, env);
+        codegen(nout, expr->e, env_);
         nout << ";" << endl << "}" << endl;
 
-        cons.insert(env.size());
-        out << BSL_CON_ << env.size() << "(" << fun(fn_idx);
-        for (auto& fv : expr->fv) {
-          out << ", " << var(fv, env);
+        cons.insert(env_.size());
+        out << BSL_CON_ << env_.size() << "(" << fun(fn_idx);
+        for (auto& fv : env_) {
+          out << ", " << var(fv.first, env);
         }
         out << ")";
       }
         return;
       case ExprType::LET: {
-        map<string, size_t> env, env1, env2;
-        for (auto& fv : expr->fv) {
-          env.insert(make_pair(fv, env.size()));
-        }
-        for (auto& fv : expr->e1->fv) {
-          env1[fv] = env[fv];
-        }
+        map<string, size_t> env_;
         for (auto& fv : expr->e2->fv) {
           if (fv != expr->x) {
-            env2[fv] = env[fv];
+            env_.insert(make_pair(fv, env_.size()));
           }
         }
         size_t fn_idx = fns.size();
@@ -167,80 +161,51 @@ struct CodeGenerator {
              << var(expr->x) << ", " << BSL_RT_VAR_T << " " << BSL_ENV
              << "[]) {" << endl;
         nout << "  return ";
-        codegen(nout, expr->e2, env2);
+        codegen(nout, expr->e2, env_);
         nout << ";" << endl << "}" << endl;
 
-        cons.insert(env.size());
-        out << BSL_RT_CALL << "(" << BSL_CON_ << env.size() << "("
+        cons.insert(env_.size());
+        out << BSL_RT_CALL << "(" << BSL_CON_ << env_.size() << "("
             << fun(fn_idx);
-        for (auto& fv : expr->fv) {
-          out << ", " << var(fv, env);
+        for (auto& fv : env_) {
+          out << ", " << var(fv.first, env);
         }
         out << "), ";
-        codegen(out, expr->e1, env1);
+        codegen(out, expr->e1, env);
         out << ")";
       }
         return;
-      case ExprType::REC: {  // TODO FIXME rec x = x + 1
-                             //        out << "[=]() -> void* { void";
-        //        for (size_t i = 0; i < expr->xes.size(); i++) {
-        //          auto t = find(expr->xes[i].second->type);
-        //          if (t->is_const) {
-        //            out << (i ? ", *" : " *") << var(expr->xes[i].first) << "
-        //            = new "
-        //                << type(t->D) << "()";
-        //          } else {
-        //            cerr << "code generator:" << endl
-        //                 << "rec " << expr->xes[i].first << " = "
-        //                 << expr->xes[i].second->to_string() << " in ..." <<
-        //                 endl;
-        //            exit(EXIT_FAILURE);
-        //          }
-        //        }
-        //        out << ";";
-        //        for (size_t i = 0; i < expr->xes.size(); i++) {
-        //          auto t = find(expr->xes[i].second->type);
-        //          out << " new (" << var(expr->xes[i].first) << ") " <<
-        //          type(t->D)
-        //              << "(*((" << type(t->D) << "*)";
-        //          codegen(expr->xes[i].second);
-        //          out << "));";
-        //        }
-        //        out << " return ";
-        //        codegen(expr->e);
-        //        out << "; } ()";
-
-        map<string, size_t> env, env2;
-        for (auto& fv : expr->fv) {
-          env.insert(make_pair(fv, env.size()));
-        }
+      case ExprType::REC: {
+        // TODO FIXME rec x = x + 1
+        set<string> fv, rec;
         for (size_t i = 0; i < expr->xes.size(); i++) {
-          env.insert(make_pair(expr->xes[i].first, env.size()));
+          fv.insert(expr->xes[i].second->fv.begin(),
+                    expr->xes[i].second->fv.end());
+          rec.insert(expr->xes[i].first);
         }
-        for (auto& fv : expr->e->fv) {
-          env2[fv] = env[fv];
+        fv.insert(expr->e->fv.begin(), expr->e->fv.end());
+        map<string, size_t> env_;
+        for (auto& fv : fv) {
+          env_.insert(make_pair(fv, env_.size()));
         }
         size_t fn_idx = fns.size();
         fns.push_back(make_shared<stringstream>());
         auto& nout = *fns.back();
         nout << BSL_RT_VAR_T << " " << fun(fn_idx) << "(" << BSL_RT_VAR_T << " "
              << "_, " << BSL_RT_VAR_T << " " << BSL_ENV << "[]) {" << endl;
-
         for (size_t i = 0; i < expr->xes.size(); i++) {
-          map<string, size_t> env1;
-          for (auto& fv : expr->xes[i].second->fv) {
-            env1[fv] = env[fv];
-          }
           auto t = find(expr->xes[i].second->type);
           if (t->is_const) {
+            nout << "  " << var(expr->xes[i].first, env_) << " = malloc(";
             if (t->D == "->") {
-              cons.insert(env1.size());
-              nout << "  " << var(expr->xes[i].first, env1) << " = " << BSL_CON_
-                   << env1.size() << "();";
+              cons.insert(expr->xes[i].second->fv.size());
+              nout << "sizeof(" << BSL_RT_FUN_T << ") + "
+                   << expr->xes[i].second->fv.size() << " * sizeof("
+                   << BSL_RT_VAR_T << ")";
             } else {
-              nout << "  " << var(expr->xes[i].first, env1)
-                   << " = malloc(sizeof(" << type(t->D) << "))";
+              nout << "sizeof(" << type(t->D) << ")";
             }
+            nout << ");" << endl;
           } else {
             cerr << "code generator:" << endl
                  << "rec " << expr->xes[i].first << " = "
@@ -248,20 +213,103 @@ struct CodeGenerator {
             exit(EXIT_FAILURE);
           }
         }
+        for (size_t i = 0; i < expr->xes.size(); i++) {
+          auto t = find(expr->xes[i].second->type);
+          assert(t->is_const);
+          nout << "  memcpy(" << var(expr->xes[i].first, env_) << ", ";
+          codegen(nout, expr->xes[i].second, env_);
+          nout << ", ";
+          if (t->D == "->") {
+            cons.insert(expr->xes[i].second->fv.size());
+            nout << "sizeof(" << BSL_RT_FUN_T << ") + "
+                 << expr->xes[i].second->fv.size() << " * sizeof("
+                 << BSL_RT_VAR_T << ")";
+          } else {
+            nout << "sizeof(" << type(t->D) << ")";
+          }
+          nout << ");" << endl;
+        }
         nout << "  return ";
-        codegen(nout, expr->e, env2);
+        codegen(nout, expr->e, env_);
         nout << ";" << endl << "}" << endl;
 
-        cons.insert(env.size());
-        out << BSL_RT_CALL << "(" << BSL_CON_ << env.size() << "("
+        cons.insert(env_.size());
+        out << BSL_RT_CALL << "(" << BSL_CON_ << env_.size() << "("
             << fun(fn_idx);
-        for (auto& fv : expr->fv) {
-          out << ", " << var(fv, env);
+        for (auto& fv : env_) {
+          if (rec.count(fv.first)) {
+            out << ", NULL";
+          } else {
+            out << ", " << var(fv.first, env);
+          }
         }
         out << "), NULL)";
       }
         return;
       case ExprType::CASE: {
+        set<string> fv;
+        for (size_t i = 0; i < expr->pes.size(); i++) {
+          set<string> fvi;
+          calculate_free_variable(expr->pes[i].second);
+          fvi.insert(expr->pes[i].second->fv.begin(),
+                     expr->pes[i].second->fv.end());
+          for (size_t j = 1; j < expr->pes[i].first.size(); j++) {
+            fvi.erase(expr->pes[i].first[j]);
+          }
+          fv.insert(fvi.begin(), fvi.end());
+        }
+        map<string, size_t> env_;
+        for (auto& fv : fv) {
+          env_.insert(make_pair(fv, env_.size()));
+        }
+        size_t fn_idx = fns.size();
+        fns.push_back(make_shared<stringstream>());
+        auto& nout = *fns.back();
+        nout << BSL_RT_VAR_T << " " << fun(fn_idx) << "(" << BSL_RT_VAR_T << " "
+             << tmp() << ", " << BSL_RT_VAR_T << " " << BSL_ENV << "[]) {"
+             << endl;
+        assert(expr->pes.size() >= 1);
+        auto t = expr->gadt;
+        while (t->is_poly) {
+          t = t->sigma;
+        }
+        string ty = t->tau->tau[0]->D;
+        if (expr->pes.size() > 1) {
+          nout << "  switch (((" << type(ty) << "*)(" << tmp() << "))->T) {"
+               << endl;
+          for (size_t i = 0; i < expr->pes.size(); i++) {
+            nout << "    case " << tag(expr->pes[i].first[0]) << ": {";
+            for (size_t j = 1; j < expr->pes[i].first.size(); j++) {
+              nout << "      " << BSL_RT_VAR_T << " "
+                   << var(expr->pes[i].first[j]) << " = ((" << type(ty) << "*)("
+                   << tmp() << "))->" << arg(j - 1) << ";" << endl;
+            }
+            nout << "      return ";
+            codegen(nout, expr->pes[i].second, env_);
+            nout << ";" << endl << "    }" << endl;
+          }
+          nout << "  }" << endl;
+        } else {
+          for (size_t j = 1; j < expr->pes.front().first.size(); j++) {
+            nout << "  " << BSL_RT_VAR_T << " "
+                 << var(expr->pes.front().first[j]) << " = ((" << type(ty)
+                 << "*)(" << tmp() << "))->" << arg(j - 1) << ";" << endl;
+          }
+          nout << "  return ";
+          codegen(nout, expr->pes.front().second, env_);
+          nout << ";" << endl;
+        }
+        nout << "}" << endl;
+
+        cons.insert(env_.size());
+        out << BSL_RT_CALL << "(" << BSL_CON_ << env_.size() << "("
+            << fun(fn_idx);
+        for (auto& fv : env_) {
+          out << ", " << var(fv.first, env);
+        }
+        out << "), ";
+        codegen(out, expr->e, env);
+        out << ")";
       }
         return;
       case ExprType::FFI: {

@@ -48,8 +48,8 @@ let putInt = \x -> Free (Write x (return Unit)) in
 rec runIO = \x -> case x of {
   Pure x -> x;
   Free x -> case x of {
-    Write c x -> let _ = ffi ` (std::printf("%d\n", (std::intptr_t) $v_bsl_c), nullptr) ` in (runIO x);
-    Read g -> let x:Maybe Int = ffi ` [=]() -> void* { int x; if (std::scanf("%d", &x) == 1) return (*((std::function<void*(void*)>*)$v_bsl_Just))((void*) (std::intptr_t) x); else return $v_bsl_Nothing; }() ` in runIO (g x)
+    Write c x -> let _ = ffi ` (printf("%d\n", (intptr_t) $c), NULL) ` in (runIO x);
+    Read g -> let x:Unit->Maybe Int = \x -> ffi ` (scanf("%d",&$x) == 1 ? BSL_RT_CALL($Just, $x) : $Nothing) ` in runIO (g (x Unit))
   }
 } in
 
@@ -58,7 +58,7 @@ let not = \x -> case x of {
   False -> True
 } in
 
-let less:Int->Int->Bool = \a -> \b -> ffi ` (((std::intptr_t) $v_bsl_a) < ((std::intptr_t) $v_bsl_b))?$v_bsl_True:$v_bsl_False ` in
+let less:Int->Int->Bool = \a -> \b -> ffi ` ((((intptr_t) $a) < ((intptr_t) $b))?$True:$False) ` in
 
 rec concat = \a -> \b -> case a of {
   Nil -> b;
