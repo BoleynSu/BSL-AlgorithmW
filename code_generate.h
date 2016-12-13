@@ -11,6 +11,7 @@
 
 #include "data.h"
 #include "expr.h"
+#include "optimize.h"
 #include "parse.h"
 #include "type.h"
 #include "type_infer.h"
@@ -227,7 +228,7 @@ struct CodeGenerator {
     stringstream c;
     infer(expr, make_shared<map<string, shared_ptr<Poly>>>(), prog.first);
     out << "int main() { ";
-    codegen(expr);
+    codegen(optimize(expr));
     out << "; }" << endl;
   }
 };
