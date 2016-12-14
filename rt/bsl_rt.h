@@ -1,7 +1,5 @@
-#include <stddef.h>
-#include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 typedef void* BSL_RT_VAR_T;
 typedef BSL_RT_VAR_T (*BSL_RT_FUN_T)(BSL_RT_VAR_T, BSL_RT_VAR_T[]);

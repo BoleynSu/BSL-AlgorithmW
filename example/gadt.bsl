@@ -57,19 +57,14 @@ let putInt = \x -> Free (Write x (return Unit)) in
 rec runIO = \x -> case x of {
   Pure x -> x;
   Free x -> case x of {
-    Write c x -> let _ = ffi ` (printf("%d\n", (intptr_t) $c), NULL) ` in (runIO x);
+    Write c x -> let _ = ffi ` (printf("%d\n", (int) $c), NULL) ` in (runIO x);
     Read g -> let x:Unit->Maybe Int = \x -> ffi ` (scanf("%d",&$x) == 1 ? BSL_RT_CALL($Just, $x) : $Nothing) ` in runIO (g (x Unit))
   }
 } in
 
-let not = \x -> case x of {
-  True -> False;
-  False -> True
-} in
-
-let add:Int->Int->Int = \a -> \b -> ffi ` ((((intptr_t) $a) + ((intptr_t) $b))?$True:$False) ` in
-let mul:Int->Int->Int = \a -> \b -> ffi ` ((((intptr_t) $a) * ((intptr_t) $b))?$True:$False) ` in
-let eq:Int->Int->Bool = \a -> \b -> ffi ` ((((intptr_t) $a) == ((intptr_t) $b))?$True:$False) ` in
+let add:Int->Int->Int = \a -> \b -> ffi ` ((int) $a) + ((int) $b) ` in
+let mul:Int->Int->Int = \a -> \b -> ffi ` ((int) $a) * ((int) $b) ` in
+let eq:Int->Int->Bool = \a -> \b -> ffi ` ((((int) $a) == ((int) $b)) ? $True : $False) ` in
 
 rec eval : forall a. Expr a -> a = \x -> case x of : forall a. Expr a -> a {
   I n -> n;

@@ -31,6 +31,15 @@ data IO a where {
   Free:forall a.IOImpl (IO a)->IO a
 }
 
+data Expr a where {
+  I   : Int  -> Expr Int;
+  B   : Bool -> Expr Bool;
+  Add : Expr Int -> Expr Int -> Expr Int;
+  Mul : Expr Int -> Expr Int -> Expr Int;
+  Eq  : Expr Int -> Expr Int -> Expr Bool;
+  If  : forall a. Expr Bool -> Expr a -> Expr a -> Expr a
+}
+
 let fmap = \f -> \x -> case x of {
   Write s k -> Write s (f k);
   Read k -> Read (\s -> f (k s))
@@ -53,44 +62,26 @@ rec runIO = \x -> case x of {
   }
 } in
 
-let not = \x -> case x of {
-  True -> False;
-  False -> True
-} in
+let sub:Int->Int->Int = \a -> \b -> ffi ` ((int) $a) - ((int) $b) ` in
+let eq:Int->Int->Bool = \a -> \b -> ffi ` ((((int) $a) == ((int) $b))?$True:$False) ` in
 
-let less:Int->Int->Bool = \a -> \b -> ffi ` ((((int) $a) < ((int) $b)) ? $True : $False) ` in
-
-rec concat = \a -> \b -> case a of {
-  Nil -> b;
-  Cons x xs -> Cons x (concat xs b)
-} in
-rec filter = \list -> \f -> case list of {
-  Nil -> Nil;
-  Cons x xs -> case f x of {
-    True -> Cons x (filter xs f);
-    False -> filter xs f
-  }
-} in
-let sort = \less ->
-  rec sortLess = \list -> case list of {
-    Nil -> Nil;
-    Cons x xs -> concat (sortLess (filter xs (\y -> not (less x y))))
-                 (Cons x (sortLess (filter xs (less x) )))
-  } in sortLess
-in
-
-rec getList = bind getInt \x -> case x of {
-  Just x -> bind getList \xs ->
-            return (Cons x xs);
-  Nothing -> return Nil
-} in
 rec putList = \list -> case list of {
   Nil -> return Unit;
   Cons x xs -> bind (putInt x) \_ ->
                putList xs
 } in
 
-let main = bind getList \list ->
-                putList (sort less list)
-in runIO main
+let zero:Int = ffi ` 0 ` in
+let one:Int = ffi ` 1 ` in
+let two:Int = ffi ` 2 ` in
+let ten:Int = ffi ` 10 ` in
+let undefined = ffi  ` NULL ` in
+rec take = \x -> \l -> case eq zero  x of {
+  True -> Nil;
+  False -> Cons (case l of {Cons h _->h;Nil->undefined})
+                (take (sub x one) (case l of {Cons _ t->t;Nil->undefined}))
+} in
+rec a = Cons one b and b = Cons two a in
+let main = bind (return (take ten a)) putList in
+runIO main
 
