@@ -79,11 +79,19 @@ let sort = \less ->
   } in sortLess
 in
 
-rec getList = bind getInt \x -> case x of {
-  Just x -> bind getList \xs ->
-            return (Cons x xs);
-  Nothing -> return Nil
-} in
+let reverse = \l ->
+  rec reverse' = \xs -> \l -> case l of {
+    Cons x t -> reverse' (Cons x xs) t;
+    Nil -> xs
+  } in reverse' Nil l
+in
+
+let getList =
+  rec getList' = \xs -> bind getInt \x -> case x of {
+    Just x -> getList' (Cons x xs);
+    Nothing -> return (reverse xs)
+  } in getList' Nil
+in
 rec putList = \list -> case list of {
   Nil -> return Unit;
   Cons x xs -> bind (putInt x) \_ ->
