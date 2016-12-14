@@ -259,6 +259,9 @@ void infer(shared_ptr<Expr> expr,
     case ExprType::LET: {
       infer(expr->e1, context, dnc);
       auto contextx = context->count(expr->x) ? (*context)[expr->x] : nullptr;
+if (expr->x=="fn") {
+cerr<<"fn:"<<to_string(gen(context,expr->e1->type))<<endl;
+}
       if (expr->e1->sig != nullptr) {
         (*context)[expr->x] = expr->e1->sig;
       } else {

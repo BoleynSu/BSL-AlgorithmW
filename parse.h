@@ -419,6 +419,13 @@ struct Parser {
         }
       }
     } else {
+      if (m) {
+        cerr << "parser: in constructor " << c->name << ":"
+             << to_string(c->type) << endl
+             << "return type is a type variable instead of "
+             << c->data_name << endl;
+        exit(EXIT_FAILURE);
+      }
       if (r) {
         st.erase(p);
       }
