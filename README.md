@@ -16,3 +16,4 @@ Error message is more user friendly now.
 
 C is the target language now.
 
+GC is added. Set env BSL_RT_WITH_GC to enable GC.
