@@ -32,12 +32,12 @@ data IO a where {
 }
 
 data Expr a where {
-  I   : Int  -> Expr Int;
-  B   : Bool -> Expr Bool;
-  Add : Expr Int -> Expr Int -> Expr Int;
-  Mul : Expr Int -> Expr Int -> Expr Int;
-  Eq  : Expr Int -> Expr Int -> Expr Bool;
-  If  : forall a. Expr Bool -> Expr a -> Expr a -> Expr a
+  I:Int->Expr Int;
+  B:Bool->Expr Bool;
+  Add:Expr Int->Expr Int->Expr Int;
+  Mul:Expr Int->Expr Int->Expr Int;
+  Eq:Expr Int->Expr Int->Expr Bool;
+  If:forall a.Expr Bool->Expr a->Expr a->Expr a
 }
 
 let fmap = \f -> \x -> case x of {
@@ -66,7 +66,7 @@ let add:Int->Int->Int = \a -> \b -> ffi ` ((int) $a) + ((int) $b) ` in
 let mul:Int->Int->Int = \a -> \b -> ffi ` ((int) $a) * ((int) $b) ` in
 let eq:Int->Int->Bool = \a -> \b -> ffi ` ((((int) $a) == ((int) $b)) ? $True : $False) ` in
 
-rec eval : forall a. Expr a -> a = \x -> case x of : forall a. Expr a -> a {
+rec eval:forall a.Expr a->a = \x -> case x of:forall a.Expr a->a {
   I n -> n;
   B b -> b;
   Add  e1 e2 -> add (eval e1) (eval e2);

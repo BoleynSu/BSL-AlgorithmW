@@ -31,15 +31,6 @@ data IO a where {
   Free:forall a.IOImpl (IO a)->IO a
 }
 
-data Expr a where {
-  I   : Int  -> Expr Int;
-  B   : Bool -> Expr Bool;
-  Add : Expr Int -> Expr Int -> Expr Int;
-  Mul : Expr Int -> Expr Int -> Expr Int;
-  Eq  : Expr Int -> Expr Int -> Expr Bool;
-  If  : forall a. Expr Bool -> Expr a -> Expr a -> Expr a
-}
-
 let fmap = \f -> \x -> case x of {
   Write s k -> Write s (f k);
   Read k -> Read (\s -> f (k s))
@@ -78,8 +69,8 @@ let ten:Int = ffi ` 10 ` in
 let undefined = ffi  ` NULL ` in
 rec take = \x -> \l -> case eq zero  x of {
   True -> Nil;
-  False -> Cons (case l of {Cons h _->h;Nil->undefined})
-                (take (sub x one) (case l of {Cons _ t->t;Nil->undefined}))
+  False -> Cons (case l of { Cons h _ -> h; Nil -> undefined })
+                (take (sub x one) (case l of { Cons _ t -> t; Nil -> undefined }))
 } in
 rec a = Cons one b and b = Cons two a in
 let main = bind (return (take ten a)) putList in
