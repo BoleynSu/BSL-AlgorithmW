@@ -183,8 +183,7 @@ struct Lexer {
         }
         position.endRow++;
         position.endColumn = 1;
-      } else if (('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z') || c == '_' ||
-                 c == '\'') {
+      } else if (('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z') || c == '_') {
         for (;;) {
           data.push_back(c);
           position.endColumn++;
@@ -415,8 +414,7 @@ struct Lexer {
         }
       } else {
         c = data[0];
-        if (('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z') || c == '_' ||
-            c == '\'') {
+        if (('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z') || c == '_') {
           token_type = TokenType::IDENTIFIER;
         } else if (c == ' ' || c == '\t' || c == '\n' || c == '\r') {
           token_type = TokenType::SPACE;

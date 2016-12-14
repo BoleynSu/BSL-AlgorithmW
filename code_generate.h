@@ -89,8 +89,7 @@ struct CodeGenerator {
         s << f[idx++];
       } else if (++idx < f.length()) {
         char c = f[idx];
-        if (('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z') || c == '_' ||
-            c == '\'') {
+        if (('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z') || c == '_') {
           string v;
           v.push_back(c);
           while (++idx < f.length()) {
