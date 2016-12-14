@@ -191,26 +191,12 @@ struct Parser {
       st.insert(t.data);
       d->arg++;
     }
-    if (accept(TokenType::FFI)) {
-      d->is_ffi = true;
-      stringstream s(t.data);
-      s.get();
-      s.get();
-      s.get();
-      string sep;
-      s >> sep;
-      size_t a = t.data.find(sep);
-      d->ffi =
-          t.data.substr(a + sep.size(), t.data.size() - (a + 2 * sep.size()));
-    } else {
-      expect(TokenType::LEFT_BRACE);
-      d->is_ffi = false;
-      while (!accept(TokenType::RIGHT_BRACE)) {
-        d->constructors.push_back(parse_constructor());
-        d->constructors.back()->data_name = d->name;
-        if (!match(TokenType::RIGHT_BRACE)) {
-          expect(TokenType::SEMICOLON);
-        }
+    expect(TokenType::LEFT_BRACE);
+    while (!accept(TokenType::RIGHT_BRACE)) {
+      d->constructors.push_back(parse_constructor());
+      d->constructors.back()->data_name = d->name;
+      if (!match(TokenType::RIGHT_BRACE)) {
+        expect(TokenType::SEMICOLON);
       }
     }
     (*data_decl)[d->name] = d;

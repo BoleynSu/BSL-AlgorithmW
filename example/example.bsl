@@ -1,6 +1,6 @@
 #!/usr/bin/env bsl
 
-data Int where ffi ` void `
+data Int where {}
 
 data Unit where {
   Unit:Unit

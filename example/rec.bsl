@@ -1,6 +1,6 @@
 #!/usr/bin/env bsl
 
-data Int where ffi ` void `
+data Int where {}
 
 data Unit where {
   Unit:Unit
@@ -72,6 +72,7 @@ rec take = \x -> \l -> case eq zero  x of {
   False -> Cons (case l of { Cons h _ -> h; Nil -> undefined })
                 (take (sub x one) (case l of { Cons _ t -> t; Nil -> undefined }))
 } in
+
 rec a = Cons one b and b = Cons two a in
 let main = bind (return (take ten a)) putList in
 runIO main

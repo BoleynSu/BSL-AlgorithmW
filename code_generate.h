@@ -33,6 +33,7 @@ const string BSL_ENV = "BSL_ENV";
 struct CodeGenerator {
   Parser& parser;
   ostream& out;
+  shared_ptr<map<string, shared_ptr<Data>>> data;
   vector<shared_ptr<stringstream>> fns;
   set<size_t> cons;
   CodeGenerator(Parser& parser, ostream& out) : parser(parser), out(out) {
@@ -176,7 +177,7 @@ struct CodeGenerator {
       }
         return;
       case ExprType::REC: {
-        // TODO FIXME rec x = x + 1
+        // TODO FIXME rec l = Cons (head l) (tail l)
         set<string> fv, rec;
         for (size_t i = 0; i < expr->xes.size(); i++) {
           fv.insert(expr->xes[i].second->fv.begin(),
@@ -195,9 +196,9 @@ struct CodeGenerator {
              << "_, " << BSL_RT_VAR_T << " " << BSL_ENV << "[]) {" << endl;
         for (size_t i = 0; i < expr->xes.size(); i++) {
           auto t = find(expr->xes[i].second->type);
-          if (t->is_const) {
+          if (t->is_const && (t->D == "->" || (*data)[t->D]->constructors.size())) {
             nout << "  " << var(expr->xes[i].first, env_) << " = malloc(";
-            if (t->D == "->") {
+            if (t->D == "->") { //FIXME let x = \x->x let y = x in let g = \z -> x y in rec f = g
               cons.insert(expr->xes[i].second->fv.size());
               nout << "sizeof(" << BSL_RT_FUN_T << ") + "
                    << expr->xes[i].second->fv.size() << " * sizeof("
@@ -215,7 +216,7 @@ struct CodeGenerator {
         }
         for (size_t i = 0; i < expr->xes.size(); i++) {
           auto t = find(expr->xes[i].second->type);
-          assert(t->is_const);
+          assert(t->is_const && (t->D == "->" || (*data)[t->D]->constructors.size()));
           nout << "  memcpy(" << var(expr->xes[i].first, env_) << ", ";
           codegen(nout, expr->xes[i].second, env_);
           nout << ", ";
@@ -323,17 +324,14 @@ struct CodeGenerator {
                          shared_ptr<map<string, shared_ptr<Constructor>>>>,
                     shared_ptr<Expr>>
                    prog) {
-    auto data = prog.first.first;
+    data = prog.first.first;
     auto expr = prog.second;
 
     out << "#include <bsl_rt.h>" << endl;
 
     for (auto dai : *data) {
       auto da = dai.second;
-      if (da->is_ffi) {
-        out << "typedef " << ffi(da->ffi) << " " << type(da->name) << ";"
-            << endl;
-      } else {
+      if (da->constructors.size()) {
         size_t maxarg = 0;
         for (size_t i = 0; i < da->constructors.size(); i++) {
           auto c = da->constructors[i];
@@ -375,7 +373,7 @@ struct CodeGenerator {
     }
     for (auto dai : *data) {
       auto da = dai.second;
-      if (!da->is_ffi) {
+      if (da->constructors.size()) {
         for (size_t i = 0; i < da->constructors.size(); i++) {
           auto c = da->constructors[i];
           auto e = make_shared<Expr>();

@@ -17,11 +17,9 @@ struct Constructor {
 };
 
 struct Data {
-  bool is_ffi;
   string name;
   size_t arg;
   vector<shared_ptr<Constructor>> constructors;
-  string ffi;
 };
 
 #endif
