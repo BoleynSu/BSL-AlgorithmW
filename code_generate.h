@@ -147,7 +147,7 @@ struct CodeGenerator {
               << "sizeof(" << BSL_RT_FUN_T << ") + " << env_.size()
               << " * sizeof(" << BSL_RT_VAR_T << "))";
         } else {
-          out << var(rec, env);  // check rec x=\x->x
+          out << var(rec, env);
         }
         out << ", " << fun(fn_idx);
         for (auto& fv : env_) {
@@ -221,6 +221,7 @@ struct CodeGenerator {
           nout << "  " << BSL_ENV << "[" << e.second << "] = " << var(e.first)
                << ";" << endl;
         }
+        stringstream nnout;
         for (size_t i = 0; i < expr->xes.size(); i++) {
           auto t = find(expr->xes[i].second->type);
           if (t->is_const && t->D == "->" &&
@@ -230,10 +231,10 @@ struct CodeGenerator {
             cons.insert(expr->xes[i].second->fv.size());
             nout << "sizeof(" << BSL_RT_FUN_T << ") + "
                  << expr->xes[i].second->fv.size() << " * sizeof("
-                 << BSL_RT_VAR_T << "));" << endl
-                 << "  ";
-            codegen(nout, expr->xes[i].second, env_, expr->xes[i].first);
-            nout << ";" << endl;
+                 << BSL_RT_VAR_T << "));" << endl;
+            nnout<< "  ";
+            codegen(nnout, expr->xes[i].second, env_, expr->xes[i].first);
+            nnout << ";" << endl;
           } else {
             string data = expr->to_string(0, "  ");
             if (data.length() > 80) {
@@ -243,6 +244,7 @@ struct CodeGenerator {
             exit(EXIT_FAILURE);
           }
         }
+        nout << nnout.str();
         nout << "  return ";
         codegen(nout, expr->e, env_);
         nout << ";" << endl << "}" << endl;

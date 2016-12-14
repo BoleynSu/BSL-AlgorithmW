@@ -21,6 +21,16 @@ data List a where {
   Cons:forall a.a->List a->List a
 }
 
+data Lazy a where {
+  Val:forall a.a->Lazy a;
+  Fn:forall a.(Unit->a)->Lazy a;
+}
+
+data LazyList a where {
+  LNil:forall a.LazyList a;
+  LCons:forall a.Lazy a->Lazy (LazyList a)->LazyList a
+}
+
 data IOImpl a where {
   Read:forall a.(Maybe Int->a)->IOImpl a;
   Write:forall a.Int->a->IOImpl a
@@ -30,6 +40,11 @@ data IO a where {
   Pure:forall a.a->IO a;
   Free:forall a.IOImpl (IO a)->IO a
 }
+
+let force = \x -> case x of {
+  Val v -> v;
+  Fn f -> let v = ffi ` (((BSL_TYPE_Lazy*)$x)->T=BSL_TAG_Val, ((BSL_TYPE_Lazy*)$x)->arg0 = BSL_RT_CALL($f,$Unit)) ` in v
+} in
 
 let fmap = \f -> \x -> case x of {
   Write s k -> Write s (f k);
@@ -67,13 +82,16 @@ let one:Int = ffi ` 1 ` in
 let two:Int = ffi ` 2 ` in
 let ten:Int = ffi ` 10 ` in
 let undefined = ffi  ` NULL ` in
-rec take = \x -> \l -> case eq zero  x of {
+rec take = \x -> \l -> case eq zero x of {
   True -> Nil;
-  False -> Cons (case l of { Cons h _ -> h; Nil -> undefined })
-                (take (sub x one) (case l of { Cons _ t -> t; Nil -> undefined }))
+  False -> Cons (case force l of { LCons h _ -> force h; LNil -> undefined })
+                (take (sub x one) (case force l of { LCons _ t -> t; LNil -> undefined }))
 } in
 
-rec a = Cons one b and b = Cons two a in
-let main = bind (return (take ten a)) putList in
+rec a = \_ ->
+LCons (Val one) (Fn b)
+and b = \_ ->
+LCons (Val two) (Fn a)
+in
+let main = bind (return (take ten (Fn a))) putList in
 runIO main
-
