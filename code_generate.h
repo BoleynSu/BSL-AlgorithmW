@@ -281,7 +281,7 @@ struct CodeGenerator {
           nout << "  switch (((" << type(ty) << "*)(" << tmp() << "))->T) {"
                << endl;
           for (size_t i = 0; i < expr->pes.size(); i++) {
-            nout << "    case " << tag(expr->pes[i].first[0]) << ": {";
+            nout << "    case " << tag(expr->pes[i].first[0]) << ": {" << endl;
             for (size_t j = 1; j < expr->pes[i].first.size(); j++) {
               nout << "      " << BSL_RT_VAR_T << " "
                    << var(expr->pes[i].first[j]) << " = ((" << type(ty) << "*)("
