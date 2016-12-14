@@ -53,7 +53,7 @@ string to_string(shared_ptr<Poly> sigma) {
   if (sigma->is_poly) {
     stringstream s;
     s << "t" << find(sigma->alpha);
-    return "forall " + s.str() + " . " + to_string(sigma->sigma);
+    return "forall " + s.str() + ". " + to_string(sigma->sigma);
   } else {
     return to_string(sigma->tau);
   }

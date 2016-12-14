@@ -259,7 +259,11 @@ void infer(shared_ptr<Expr> expr,
     case ExprType::LET: {
       infer(expr->e1, context, dnc);
       auto contextx = context->count(expr->x) ? (*context)[expr->x] : nullptr;
-      (*context)[expr->x] = gen(context, expr->e1->type);
+      if (expr->e1->sig != nullptr) {
+        (*context)[expr->x] = expr->e1->sig;
+      } else {
+        (*context)[expr->x] = gen(context, expr->e1->type);
+      }
       // cerr << "//" << expr->x << " : " << to_string((*context)[expr->x])
       //     << endl;
       infer(expr->e2, context, dnc);
@@ -432,7 +436,7 @@ void infer(shared_ptr<Expr> expr,
   }
   if (expr->sig != nullptr) {
     set<shared_ptr<Mono>> st;
-    unify_sig(expr->type, inst(expr->sig), st);
+    unify_sig(inst(gen(context, expr->type)), inst(expr->sig), st);
   }
 }
 

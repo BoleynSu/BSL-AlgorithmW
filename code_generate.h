@@ -207,9 +207,12 @@ struct CodeGenerator {
             }
             nout << ");" << endl;
           } else {
+            string data = expr->to_string(0, "  ");
+            if (data.length() > 80) {
+              data = data.substr(0, 77) + "...";
+            }
             cerr << "code generator:" << endl
-                 << "rec " << expr->xes[i].first << " = "
-                 << expr->xes[i].second->to_string() << " in ..." << endl;
+                 << data << endl;
             exit(EXIT_FAILURE);
           }
         }
@@ -219,7 +222,7 @@ struct CodeGenerator {
           nout << "  memcpy(" << var(expr->xes[i].first, env_) << ", ";
           codegen(nout, expr->xes[i].second, env_);
           nout << ", ";
-          if (t->D == "->") {
+          if (t->D == "->") { //FIXME let x = \x->x let y = x in let g = \z -> x y in rec f = g
             cons.insert(expr->xes[i].second->fv.size());
             nout << "sizeof(" << BSL_RT_FUN_T << ") + "
                  << expr->xes[i].second->fv.size() << " * sizeof("
