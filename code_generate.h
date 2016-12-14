@@ -21,6 +21,7 @@ using namespace std;
 const string BSL_RT_CLOSURE_T = "BSL_RT_CLOSURE_T";
 const string BSL_RT_FUN_T = "BSL_RT_FUN_T";
 const string BSL_RT_VAR_T = "BSL_RT_VAR_T";
+const string BSL_RT_MALLOC = "BSL_RT_MALLOC";
 const string BSL_RT_CALL = "BSL_RT_CALL";
 
 const string BSL_TYPE_ = "BSL_TYPE_";
@@ -53,8 +54,8 @@ struct CodeGenerator {
         nv.push_back(v[i]);
       }
     }
-    if (env.count(nv)) {
-      size_t idx = env.find(nv)->second;
+    if (env.count(v)) {
+      size_t idx = env.find(v)->second;
       stringstream ss;
       ss << BSL_ENV << "[" << idx << "]";
       return ss.str();
@@ -196,7 +197,8 @@ struct CodeGenerator {
         for (size_t i = 0; i < expr->xes.size(); i++) {
           auto t = find(expr->xes[i].second->type);
           if (t->is_const && (t->D == "->" || (*data)[t->D]->constructors.size())) {
-            nout << "  " << var(expr->xes[i].first, env_) << " = malloc(";
+            nout << "  " << var(expr->xes[i].first, env_) << " = "
+                 << BSL_RT_MALLOC << "(";
             if (t->D == "->") { //FIXME let x = \x->x let y = x in let g = \z -> x y in rec f = g
               cons.insert(expr->xes[i].second->fv.size());
               nout << "sizeof(" << BSL_RT_FUN_T << ") + "
@@ -359,7 +361,8 @@ struct CodeGenerator {
             out << (j == 0 ? "" : ", ") << BSL_RT_VAR_T << " " << var(arg(j));
           }
           out << ") {" << endl
-              << "  " << type(da->name) << " *" << tmp() << " = malloc(sizeof("
+              << "  " << type(da->name) << " *" << tmp() << " = "
+              << BSL_RT_MALLOC << "(sizeof("
               << type(da->name) << "));" << endl;
           if (da->constructors.size() > 1) {
             out << "  " << tmp() << "->T = " << tag(c->name) << ";" << endl;
@@ -417,7 +420,8 @@ struct CodeGenerator {
         out << ", " << BSL_RT_VAR_T << " " << var(arg(j));
       }
       out << ") {" << endl
-          << "  " << BSL_RT_CLOSURE_T << " " << tmp() << " = malloc(sizeof("
+          << "  " << BSL_RT_CLOSURE_T << " " << tmp() << " = "
+          << BSL_RT_MALLOC << "(sizeof("
           << BSL_RT_FUN_T << ") + " << i << " * sizeof(" << BSL_RT_VAR_T
           << "));" << endl;
       out << "  " << tmp() << "->fun"
