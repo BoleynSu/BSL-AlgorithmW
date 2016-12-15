@@ -6,7 +6,7 @@
 #include "expr.h"
 
 void calculate_free_variable(shared_ptr<Expr> e) {
-  auto& fv = e->fv;
+  auto &fv = e->fv;
   switch (e->T) {
     case ExprType::VAR: {
       fv.insert(e->x);

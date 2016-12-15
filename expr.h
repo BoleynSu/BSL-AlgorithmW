@@ -19,15 +19,15 @@ struct Expr {
   ExprType T;
   string x;
   shared_ptr<Expr> e1, e2, e;
-  vector<pair<string, shared_ptr<Expr> > > xes;
-  vector<pair<vector<string>, shared_ptr<Expr> > > pes;
+  vector<pair<string, shared_ptr<Expr>>> xes;
+  vector<pair<vector<string>, shared_ptr<Expr>>> pes;
   string ffi;
   shared_ptr<Mono> type;
   shared_ptr<Poly> sig, gadt;
   Position pos;
   set<string> fv;
 
-  string to_string(size_t indent = 0, const string& indents = "") {
+  string to_string(size_t indent = 0, const string &indents = "") {
     stringstream s;
     switch (T) {
       case ExprType::VAR:
@@ -40,7 +40,7 @@ struct Expr {
       case ExprType::ABS:
         s << "(\\" << x << "->" << endl;
         for (size_t i = 0; i < indent + 1; i++) {
-           s << indents;
+          s << indents;
         }
         s << e->to_string(indent + 1, indents) << ")";
         break;
@@ -53,8 +53,7 @@ struct Expr {
         if (e1->sig != nullptr) {
           s << ":" << ::to_string(e1->sig);
         }
-        s << " = " << e1->to_string(indent + 1, indents)
-          << endl;
+        s << " = " << e1->to_string(indent + 1, indents) << endl;
         for (size_t i = 0; i < indent + 1; i++) {
           s << indents;
         }

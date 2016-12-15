@@ -19,12 +19,12 @@
 using namespace std;
 
 struct Parser {
-  Lexer& lexer;
+  Lexer &lexer;
   Token t;
   shared_ptr<map<string, shared_ptr<Data>>> data_decl;
   shared_ptr<map<string, shared_ptr<Constructor>>> constructor_decl;
 
-  Parser(Lexer& lexer) : lexer(lexer) {}
+  Parser(Lexer &lexer) : lexer(lexer) {}
 
   bool match(TokenType token_type) {
     while (lexer.look_at(0).token_type == TokenType::HASHBANG ||
@@ -58,7 +58,7 @@ struct Parser {
     }
   }
 
-  shared_ptr<Mono> parse_monotype(map<string, shared_ptr<Mono>>& m) {
+  shared_ptr<Mono> parse_monotype(map<string, shared_ptr<Mono>> &m) {
     shared_ptr<Mono> mo = parse_monotype_(m);
     if (accept(TokenType::RIGHTARROW)) {
       auto t = make_shared<Mono>();
@@ -71,7 +71,7 @@ struct Parser {
     return mo;
   }
 
-  shared_ptr<Mono> parse_monotype_(map<string, shared_ptr<Mono>>& m) {
+  shared_ptr<Mono> parse_monotype_(map<string, shared_ptr<Mono>> &m) {
     shared_ptr<Mono> mo;
     if (accept(TokenType::IDENTIFIER)) {
       if (m.count(t.data)) {
@@ -110,7 +110,7 @@ struct Parser {
     return mo;
   }
 
-  shared_ptr<Poly> parse_polytype(map<string, shared_ptr<Mono>>& m) {
+  shared_ptr<Poly> parse_polytype(map<string, shared_ptr<Mono>> &m) {
     if (accept(TokenType::FORALL)) {
       expect(TokenType::IDENTIFIER);
       if (m.count(t.data)) {
@@ -376,7 +376,7 @@ struct Parser {
     return expr;
   }
   void check(shared_ptr<Constructor> c, shared_ptr<Mono> p,
-             set<shared_ptr<Mono>>& st, bool m, bool r) {
+             set<shared_ptr<Mono>> &st, bool m, bool r) {
     if (p->is_const) {
       if (p->D == "->") {
         assert(p->tau.size() == 2);
@@ -422,8 +422,8 @@ struct Parser {
       if (m) {
         cerr << "parser: in constructor " << c->name << ":"
              << to_string(c->type) << endl
-             << "return type is a type variable instead of "
-             << c->data_name << endl;
+             << "return type is a type variable instead of " << c->data_name
+             << endl;
         exit(EXIT_FAILURE);
       }
       if (r) {
@@ -440,7 +440,7 @@ struct Parser {
     while (accept(TokenType::DATA)) {
       parse_data();
     }
-    for (auto& c : *constructor_decl) {
+    for (auto &c : *constructor_decl) {
       shared_ptr<Poly> p = c.second->type;
       set<shared_ptr<Mono>> st;
       while (p->is_poly) {

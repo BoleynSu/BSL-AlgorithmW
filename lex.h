@@ -14,7 +14,7 @@ struct Position {
   string filename;
   size_t beginRow, beginColumn, endRow, endColumn;
 };
-ostream& operator<<(ostream& out, const Position& p) {
+ostream &operator<<(ostream &out, const Position &p) {
   out << p.filename << ":[" << p.beginRow << "," << p.beginColumn << "-"
       << p.endRow << "," << p.endColumn << ")";
   return out;
@@ -54,7 +54,7 @@ enum class TokenType {
 
   ERROR
 };
-ostream& operator<<(ostream& out, TokenType t) {
+ostream &operator<<(ostream &out, TokenType t) {
   switch (t) {
     case TokenType::HASHBANG:
       out << "HASHBANG";
@@ -148,7 +148,7 @@ struct Lexer {
   string filename;
   ifstream in;
   deque<Token> tokens;
-  Lexer(const string& filename) : filename(filename), in(filename) {
+  Lexer(const string &filename) : filename(filename), in(filename) {
     Position position;
     position.filename = filename;
     position.endRow = 1;

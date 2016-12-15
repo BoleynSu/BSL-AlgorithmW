@@ -20,7 +20,7 @@ using namespace std;
 shared_ptr<Mono> newvar() { return make_shared<Mono>(Mono{false}); }
 
 shared_ptr<Mono> inst(shared_ptr<Mono> tau,
-                      map<shared_ptr<Mono>, shared_ptr<Mono>>& m) {
+                      map<shared_ptr<Mono>, shared_ptr<Mono>> &m) {
   tau = find(tau);
   if (tau->is_const) {
     auto t = make_shared<Mono>();
@@ -40,7 +40,7 @@ shared_ptr<Mono> inst(shared_ptr<Mono> tau,
 }
 
 shared_ptr<Mono> inst(shared_ptr<Poly> sigma,
-                      map<shared_ptr<Mono>, shared_ptr<Mono>>& m) {
+                      map<shared_ptr<Mono>, shared_ptr<Mono>> &m) {
   if (sigma->is_poly) {
     if (!m.count(find(sigma->alpha))) {
       m[find(sigma->alpha)] = newvar();
@@ -56,7 +56,7 @@ shared_ptr<Mono> inst(shared_ptr<Poly> sigma) {
   return inst(sigma, m);
 }
 
-void ftv(set<shared_ptr<Mono>>& f, shared_ptr<Mono> tau) {
+void ftv(set<shared_ptr<Mono>> &f, shared_ptr<Mono> tau) {
   tau = find(tau);
   if (tau->is_const) {
     for (size_t i = 0; i < tau->tau.size(); i++) {
@@ -67,7 +67,7 @@ void ftv(set<shared_ptr<Mono>>& f, shared_ptr<Mono> tau) {
   }
 }
 
-void ftv(set<shared_ptr<Mono>>& f, shared_ptr<Poly> sigma) {
+void ftv(set<shared_ptr<Mono>> &f, shared_ptr<Poly> sigma) {
   if (sigma->is_poly) {
     ftv(f, sigma->sigma);
     f.erase(find(sigma->alpha));
@@ -80,7 +80,7 @@ shared_ptr<Poly> gen(shared_ptr<map<string, shared_ptr<Poly>>> context,
                      shared_ptr<Mono> tau) {
   tau = find(tau);
   set<shared_ptr<Mono>> f;
-  for (auto& c : *context) {
+  for (auto &c : *context) {
     set<shared_ptr<Mono>> fi;
     ftv(fi, c.second);
     f.insert(fi.begin(), fi.end());
@@ -175,7 +175,7 @@ void unify(shared_ptr<Mono> a, shared_ptr<Mono> b) {
 }
 
 void unify_sig(shared_ptr<Mono> a, shared_ptr<Mono> b,
-               set<shared_ptr<Mono>>& st) {
+               set<shared_ptr<Mono>> &st) {
   a = find(a);
   b = find(b);
   st.insert(b);
@@ -217,7 +217,7 @@ void unify_sig(shared_ptr<Mono> a, shared_ptr<Mono> b,
 void infer(shared_ptr<Expr> expr,
            shared_ptr<map<string, shared_ptr<Poly>>> context,
            pair<shared_ptr<map<string, shared_ptr<Data>>>,
-                shared_ptr<map<string, shared_ptr<Constructor>>>>& dnc) {
+                shared_ptr<map<string, shared_ptr<Constructor>>>> &dnc) {
   switch (expr->T) {
     case ExprType::VAR:
       if (context->count(expr->x)) {
@@ -372,7 +372,7 @@ void infer(shared_ptr<Expr> expr,
 
       if (expr->gadt == nullptr) {
         shared_ptr<Mono> gadt = make_shared<Mono>();
-        for (auto& fn : fns) {
+        for (auto &fn : fns) {
           unify(gadt, inst(fn.second));
         }
         expr->gadt = gen(context, gadt);
