@@ -21,16 +21,6 @@ data List a where {
   Cons:forall a.a->List a->List a
 }
 
-data IOImpl a where {
-  Read:forall a.(Maybe Int->a)->IOImpl a;
-  Write:forall a.Int->a->IOImpl a
-}
-
-data IO a where {
-  Pure:forall a.a->IO a;
-  Free:forall a.IOImpl (IO a)->IO a
-}
-
 data Expr a where {
   I:Int->Expr Int;
   B:Bool->Expr Bool;
@@ -40,9 +30,19 @@ data Expr a where {
   If:forall a.Expr Bool->Expr a->Expr a->Expr a
 }
 
+data IOImpl a where {
+  Read:forall a.(Unit->Maybe Int->a)->IOImpl a;
+  Write:forall a.Int->(Unit->a)->IOImpl a
+}
+
+data IO a where {
+  Pure:forall a.a->IO a;
+  Free:forall a.IOImpl (IO a)->IO a
+}
+
 let fmap = \f -> \x -> case x of {
-  Write s k -> Write s (f k);
-  Read k -> Read (\s -> f (k s))
+  Write s k -> Write s (\_ -> f (k Unit));
+  Read k -> Read (\_ -> \s -> f (k Unit s))
 } in
 
 let return = Pure in
@@ -51,14 +51,14 @@ rec bind = \x -> \f -> case x of {
   Free x -> Free (fmap (\y -> bind y f) x)
 } in
 
-let getInt = Free (Read (\x -> return x)) in
-let putInt = \x -> Free (Write x (return Unit)) in
+let getInt = Free (Read (\_ -> \x -> return x)) in
+let putInt = \x -> Free (Write x (\_ -> return Unit)) in
 
 rec runIO = \x -> case x of {
   Pure x -> x;
   Free x -> case x of {
-    Write c x -> let _ = ffi ` (printf("%d\n", (int) $c), NULL) ` in (runIO x);
-    Read g -> let x:Unit->Maybe Int = \x -> ffi ` (scanf("%d",&$x) == 1 ? BSL_RT_CALL($Just, $x) : $Nothing) ` in runIO (g (x Unit))
+    Write c x -> let _ = ffi ` (printf("%d\n", (int) $c), NULL) ` in runIO (x Unit);
+    Read g -> let x:Unit->Maybe Int = \x -> ffi ` (scanf("%d",&$x) == 1 ? BSL_RT_CALL($Just, $x) : $Nothing) ` in runIO (g Unit (x Unit))
   }
 } in
 
