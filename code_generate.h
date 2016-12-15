@@ -200,8 +200,8 @@ struct CodeGenerator {
         }
         fv.insert(expr->e->fv.begin(), expr->e->fv.end());
         map<string, size_t> env_;
-        for (auto& fv : fv) {
-          env_.insert(make_pair(fv, env_.size()));
+        for (auto& v : fv) {
+          env_.insert(make_pair(v, env_.size()));
         }
         size_t fn_idx = fns.size();
         fns.push_back(make_shared<stringstream>());
@@ -281,8 +281,8 @@ struct CodeGenerator {
           fv.insert(fvi.begin(), fvi.end());
         }
         map<string, size_t> env_;
-        for (auto& fv : fv) {
-          env_.insert(make_pair(fv, env_.size()));
+        for (auto& v : fv) {
+          env_.insert(make_pair(v, env_.size()));
         }
         size_t fn_idx = fns.size();
         fns.push_back(make_shared<stringstream>());
