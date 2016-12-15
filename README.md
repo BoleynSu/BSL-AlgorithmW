@@ -4,7 +4,12 @@ Algorithm W used in Hindley–Milner type system
 You can use following command to play with the example.
 
 ```bash
-g++ main.cpp ;./a.out example/example.bsl > example/example.cpp;g++ example/example.cpp -o ex;./ex
+git clone https://github.com/BoleynSu/algorithm-w.git
+cd algorithm-w
+g++ main.cpp -std=c++11 -o bslc &&
+./bslc example/example.bsl > example/example.c &&
+gcc -w -Irt example/example.c -o example/example &&
+./example/example
 ```
 It will sort all inputed numbers. Use CTRL+D to end your input.
 
