@@ -86,24 +86,35 @@ struct CodeGenerator {
     stringstream s;
     size_t idx = 0;
     while (idx < f.length()) {
-      if (f[idx] != '$') {
+      char c = f[idx];
+      if (c != '$') {
         s << f[idx++];
-      } else if (++idx < f.length()) {
-        char c = f[idx];
-        if (('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z') || c == '_') {
-          string v;
-          v.push_back(c);
-          while (++idx < f.length()) {
-            c = f[idx];
-            if (!(('0' <= c && c <= '9') || ('A' <= c && c <= 'Z') ||
-                  ('a' <= c && c <= 'z') || c == '_' || c == '\'')) {
-              break;
-            }
+      } else {
+        idx++;
+        if (idx < f.length()) {
+          c = f[idx];
+          if (('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z') || c == '_') {
+            string v;
             v.push_back(c);
+            idx++;
+            while (idx < f.length()) {
+              c = f[idx];
+              if (!(('0' <= c && c <= '9') || ('A' <= c && c <= 'Z') ||
+                    ('a' <= c && c <= 'z') || c == '_' || c == '\'')) {
+                break;
+              }
+              v.push_back(c);
+              idx++;
+            }
+            s << var(v, env);
+          } else {
+            string data = f;
+            if (data.length() > 80) {
+              data = data.substr(0, 77) + "...";
+            }
+            cerr << "code generator: error in ffi" << endl << data << endl;
+            exit(EXIT_FAILURE);
           }
-          s << var(v, env);
-        } else {
-          s << '$' << f[idx++];
         }
       }
     }
@@ -240,7 +251,8 @@ struct CodeGenerator {
             if (data.length() > 80) {
               data = data.substr(0, 77) + "...";
             }
-            cerr << "code generator:" << endl << data << endl;
+            cerr << "code generator: rec of this type is not supported" << endl
+                 << data << endl;
             exit(EXIT_FAILURE);
           }
         }
@@ -306,7 +318,7 @@ struct CodeGenerator {
         }
         string ty = t->tau->tau[0]->D;
         if (expr->pes.size() > 1) {
-          nout << "  switch (((" << type(ty) << "*)(" << tmp() << "))->T) {"
+          nout << "  switch (((" << type(ty) << "*)(" << tmp() << "))->tag) {"
                << endl;
           for (size_t i = 0; i < expr->pes.size(); i++) {
             nout << "    case " << tag(expr->pes[i].first[0]) << ": {" << endl;
@@ -372,7 +384,7 @@ struct CodeGenerator {
             auto c = da->constructors[i];
             out << (i ? ", " : " ") << tag(c->name);
           }
-          out << " } T; ";
+          out << " } tag; ";
         }
         for (size_t i = 0; i < maxarg; i++) {
           out << BSL_RT_VAR_T << " " << arg(i) << "; ";
@@ -387,7 +399,7 @@ struct CodeGenerator {
           }
           out << ") {" << endl;
           if (da->constructors.size() > 1) {
-            out << "  " << tmp() << "->T = " << tag(c->name) << ";" << endl;
+            out << "  " << tmp() << "->tag = " << tag(c->name) << ";" << endl;
           }
           for (size_t j = 0; j < c->arg; j++) {
             out << "  " << tmp() << "->" << arg(j) << " = " << var(arg(j))

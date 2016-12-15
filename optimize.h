@@ -80,6 +80,24 @@ void calculate_free_variable(shared_ptr<Expr> e) {
 
 shared_ptr<Expr> optimize(shared_ptr<Expr> e) {
   calculate_free_variable(e);
+  if (!e->fv.empty()) {
+    stringstream s;
+    bool first = true;
+    for (auto fv : e->fv) {
+      if (!first) {
+        s << " ,";
+      }
+      s << fv;
+      first = false;
+    }
+    string data = s.str();
+    if (data.length() > 80) {
+      data = data.substr(0, 77) + "...";
+    }
+    cerr << "error: there are free variables at top level" << endl
+         << data << endl;
+    exit(EXIT_FAILURE);
+  }
   return e;
 }
 
