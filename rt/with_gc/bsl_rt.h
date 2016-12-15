@@ -1,4 +1,3 @@
-#include <stdlib.h>
 #include <gc.h>
 
 #define BSL_RT_MALLOC GC_MALLOC
