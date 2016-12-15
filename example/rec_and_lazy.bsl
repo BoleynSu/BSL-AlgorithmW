@@ -65,7 +65,8 @@ rec runIO = \x -> case x of {
 
 let force = \x -> case x of {
   Val v -> v;
-  Fn f -> let v = ffi ` (((BSL_TYPE_Lazy*)$x)->T=BSL_TAG_Val, ((BSL_TYPE_Lazy*)$x)->arg0 = BSL_RT_CALL($f,$Unit)) ` in v
+  Fn f -> let v = ffi ` BSL_RT_CALL($f, $Unit) ` in
+          let _ = ffi ` BSL_CON_Val($x, $v) ` in v
 } in
 
 let sub:Int->Int->Int = \a -> \b -> ffi ` ((int) $a) - ((int) $b) ` in
@@ -81,11 +82,11 @@ let zero:Int = ffi ` 0 ` in
 let one:Int = ffi ` 1 ` in
 let two:Int = ffi ` 2 ` in
 let ten:Int = ffi ` 10 ` in
-let undefined = ffi  ` NULL ` in
+let undefined:forall a.Unit->a = \_ -> ffi  ` (puts("undefined"), exit(-1), NULL) ` in
 rec take = \x -> \l -> case eq zero x of {
   True -> Nil;
-  False -> Cons (case force l of { LCons h _ -> force h; LNil -> undefined })
-                (take (sub x one) (case force l of { LCons _ t -> t; LNil -> undefined }))
+  False -> Cons (case force l of { LCons h _ -> force h; LNil -> undefined Unit })
+                (take (sub x one) (case force l of { LCons _ t -> t; LNil -> undefined Unit }))
 } in
 
 rec a = \_ ->
