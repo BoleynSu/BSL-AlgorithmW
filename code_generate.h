@@ -318,8 +318,13 @@ struct CodeGenerator {
         }
         string ty = t->tau->tau[0]->D;
         if (expr->pes.size() > 1) {
-          nout << "  switch (((" << type(ty) << "*)(" << tmp() << "))->tag) {"
-               << endl;
+          nout << "  switch (";
+          if ((*data)[ty]->maxarg > 0) {
+            nout << "((" << type(ty) << "*) " << tmp() << ")->tag";
+          } else {
+            nout << "(int) " << tmp();
+          }
+          nout << ") {" << endl;
           for (size_t i = 0; i < expr->pes.size(); i++) {
             nout << "    case " << tag(expr->pes[i].first[0]) << ": {" << endl;
             for (size_t j = 1; j < expr->pes[i].first.size(); j++) {
@@ -333,10 +338,18 @@ struct CodeGenerator {
           }
           nout << "  }" << endl;
         } else {
-          for (size_t j = 1; j < expr->pes.front().first.size(); j++) {
+          assert(expr->pes.size() == 1);
+          if (expr->pes.front().first.size() > 2) {
+            for (size_t j = 1; j < expr->pes.front().first.size(); j++) {
+              nout << "  " << BSL_RT_VAR_T << " "
+                   << var(expr->pes.front().first[j]) << " = ((" << type(ty)
+                   << "*)(" << tmp() << "))->" << arg(j - 1) << ";" << endl;
+            }
+          } else {
+            assert(expr->pes.front().first.size() == 2);
             nout << "  " << BSL_RT_VAR_T << " "
-                 << var(expr->pes.front().first[j]) << " = ((" << type(ty)
-                 << "*)(" << tmp() << "))->" << arg(j - 1) << ";" << endl;
+                 << var(expr->pes.front().first[1]) << " = " << tmp() << ";"
+                 << endl;
           }
           nout << "  return ";
           codegen(nout, expr->pes.front().second, env_);
@@ -372,38 +385,66 @@ struct CodeGenerator {
     for (auto dai : *data) {
       auto da = dai.second;
       if (da->constructors.size()) {
-        size_t maxarg = 0;
+        da->maxarg = 0;
         for (size_t i = 0; i < da->constructors.size(); i++) {
           auto c = da->constructors[i];
-          maxarg = max(maxarg, c->arg);
+          da->maxarg = max(da->maxarg, c->arg);
         }
-        out << "typedef struct { ";
+        out << "typedef struct {" << endl;
         if (da->constructors.size() > 1) {
-          out << "enum {";
+          out << "  enum {";
           for (size_t i = 0; i < da->constructors.size(); i++) {
             auto c = da->constructors[i];
             out << (i ? ", " : " ") << tag(c->name);
           }
-          out << " } tag; ";
-        }
-        for (size_t i = 0; i < maxarg; i++) {
-          out << BSL_RT_VAR_T << " " << arg(i) << "; ";
+          out << " }";
+          if (da->maxarg > 0) {
+            out << " tag";
+          }
+          out << ";" << endl;
+          for (size_t i = 0; i < da->maxarg; i++) {
+            out << "  " << BSL_RT_VAR_T << " " << arg(i) << ";" << endl;
+          }
+        } else {
+          assert(da->constructors.size() == 1);
+          if (da->maxarg == 1) {
+          } else {
+            for (size_t i = 0; i < da->maxarg; i++) {
+              out << "  " << BSL_RT_VAR_T << " " << arg(i) << ";" << endl;
+            }
+          }
         }
         out << "} " << type(da->name) << ";" << endl;
         for (size_t i = 0; i < da->constructors.size(); i++) {
           auto c = da->constructors[i];
-          out << BSL_RT_VAR_T << " " << con(c->name) << "("
-              << "  " << type(da->name) << " *" << tmp();
+          out << BSL_RT_VAR_T << " " << con(c->name) << "(" << type(da->name)
+              << " *" << tmp();
           for (size_t j = 0; j < c->arg; j++) {
             out << ", " << BSL_RT_VAR_T << " " << var(arg(j));
           }
           out << ") {" << endl;
           if (da->constructors.size() > 1) {
-            out << "  " << tmp() << "->tag = " << tag(c->name) << ";" << endl;
-          }
-          for (size_t j = 0; j < c->arg; j++) {
-            out << "  " << tmp() << "->" << arg(j) << " = " << var(arg(j))
-                << ";" << endl;
+            out << "  ";
+            if (da->maxarg > 0) {
+              out << tmp() << "->tag";
+            } else {
+              out << tmp();
+            }
+            out << " = " << tag(c->name) << ";" << endl;
+            for (size_t j = 0; j < c->arg; j++) {
+              out << "  " << tmp() << "->" << arg(j) << " = " << var(arg(j))
+                  << ";" << endl;
+            }
+          } else {
+            assert(da->constructors.size() == 1);
+            if (da->maxarg == 1) {
+              out << "  " << tmp() << " = " << var(arg(0)) << ";" << endl;
+            } else {
+              for (size_t j = 0; j < c->arg; j++) {
+                out << "  " << tmp() << "->" << arg(j) << " = " << var(arg(j))
+                    << ";" << endl;
+              }
+            }
           }
           out << "  return (" << BSL_RT_VAR_T << ")" << tmp() << ";" << endl;
           out << "}" << endl;
@@ -413,6 +454,9 @@ struct CodeGenerator {
     for (auto dai : *data) {
       auto da = dai.second;
       if (da->constructors.size()) {
+        for (size_t i = 0; i < da->constructors.size(); i++) {
+          auto c = da->constructors[i];
+        }
         for (size_t i = 0; i < da->constructors.size(); i++) {
           auto c = da->constructors[i];
           auto e = make_shared<Expr>();
@@ -427,8 +471,12 @@ struct CodeGenerator {
             cur = cur->e;
           }
           stringstream s;
-          s << " " << con(c->name) << "(" << BSL_RT_MALLOC << "(sizeof("
-            << type(c->data_name) << "))" << endl;
+          s << " " << con(c->name) << "(";
+          if (da->maxarg > 0) {
+            s << BSL_RT_MALLOC << "(sizeof(" << type(c->data_name) << "))";
+          } else {
+            s << "NULL";
+          }
           for (size_t j = 0; j < c->arg; j++) {
             s << ", "
               << "$" << arg(j);
