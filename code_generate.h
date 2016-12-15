@@ -472,7 +472,8 @@ struct CodeGenerator {
           }
           stringstream s;
           s << " " << con(c->name) << "(";
-          if (da->maxarg > 0) {
+          if (da->maxarg > 0 &&
+              (da->maxarg != 1 || da->constructors.size() != 1)) {
             s << BSL_RT_MALLOC << "(sizeof(" << type(c->data_name) << "))";
           } else {
             s << "NULL";
