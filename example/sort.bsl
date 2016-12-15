@@ -60,41 +60,33 @@ let not = \x -> case x of {
 
 let less:Int->Int->Bool = \a -> \b -> ffi ` ((((int) $a) < ((int) $b)) ? $True : $False) ` in
 
-let reverse = \l ->
-  rec reverse' = \xs -> \l -> case l of {
-    Cons x t -> reverse' (Cons x xs) t;
-    Nil -> xs
-  } in reverse' Nil l
-in
-
-let concat = \a ->
-  rec concat' = \a -> \b -> case b of {
-    Nil -> reverse a;
-    Cons x xs -> concat' (Cons x a) xs
-  } in concat' (reverse a)
-in
-let filter =
-  rec filter' = \acc -> \list -> \f -> case list of {
-    Nil -> reverse acc;
-    Cons x xs -> case f x of {
-      True -> filter' (Cons x acc) xs f;
-      False -> filter' acc xs f
-    }
-  } in filter' Nil
-in
 let sort = \less ->
-  rec sortLess = \list -> case list of {
+  rec concat = \a -> \b -> case a of {
+    Nil -> b;
+    Cons x xs -> concat xs (Cons x b)
+  } in
+  let filter = \f ->
+    rec filter = \acc -> \list -> case list of {
+      Nil -> acc;
+      Cons x xs -> case f x of {
+        True -> filter (Cons x acc) xs;
+        False -> filter acc xs
+      }
+    } in filter Nil
+  in
+  let notLess = \x -> \y -> not (less x y) in
+  rec sort = \less -> \notLess -> \list -> case list of {
     Nil -> Nil;
-    Cons x xs -> concat (sortLess (filter xs (\y -> not (less x y))))
-                 (Cons x (sortLess (filter xs (less x) )))
-  } in sortLess
+    Cons x xs -> concat (sort notLess less (filter (notLess x) xs))
+                 (Cons x (sort less  notLess (filter (less x) xs)))
+  } in sort less notLess
 in
 
 let getList =
-  rec getList' = \xs -> bind getInt \x -> case x of {
-    Just x -> getList' (Cons x xs);
-    Nothing -> return (reverse xs)
-  } in getList' Nil
+  rec getList = \xs -> bind getInt \x -> case x of {
+    Just x -> getList (Cons x xs);
+    Nothing -> return xs
+  } in getList Nil
 in
 rec putList = \list -> case list of {
   Nil -> return Unit;
@@ -105,4 +97,3 @@ rec putList = \list -> case list of {
 let main = bind getList \list ->
                 putList (sort less list)
 in runIO main
-
