@@ -5,14 +5,14 @@
 #include <string>
 #include <vector>
 
-struct Poly;
+struct Poly_;
 
 using namespace std;
 
 struct Constructor {
   string name;
   size_t arg;
-  shared_ptr<Poly> type;
+  shared_ptr<Poly_> type;
   string data_name;
 };
 

@@ -312,13 +312,10 @@ struct CodeGenerator {
                << ";" << endl;
         }
         assert(expr->pes.size() >= 1);
-        auto t = expr->gadt;
-        while (t->is_poly) {
-          t = t->sigma;
-        }
-        assert(t->tau->is_const && t->tau->D == "->" &&
-               t->tau->tau[0]->is_const && data->count(t->tau->tau[0]->D));
-        auto da = (*data)[t->tau->tau[0]->D];
+        auto t = get_mono(expr->gadt);
+        assert(t->is_const && t->D == "->" && get_mono(t->tau[0])->is_const &&
+               data->count(get_mono(t->tau[0])->D));
+        auto da = (*data)[get_mono(t->tau[0])->D];
         if (da->to_ptr != numeric_limits<size_t>::max()) {
           assert(da->constructors.size());
           if (expr->pes.count(da->constructors[da->to_ptr]->name)) {
@@ -572,7 +569,7 @@ struct CodeGenerator {
       }
     }
 
-    infer(expr, make_shared<map<string, shared_ptr<Poly>>>(), prog.first);
+    infer(expr, make_shared<map<string, shared_ptr<Poly_>>>(), prog.first);
 
     stringstream main;
     codegen(main, optimize(expr), map<string, size_t>());

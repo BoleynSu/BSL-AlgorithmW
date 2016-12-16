@@ -58,28 +58,24 @@ struct Parser {
     }
   }
 
-  shared_ptr<Mono> parse_monotype(map<string, shared_ptr<Mono>> &m) {
-    shared_ptr<Mono> mo = parse_monotype_(m);
+  shared_ptr<Mono_> parse_monotype(map<string, shared_ptr<Mono_>> &m) {
+    shared_ptr<Mono_> mo = parse_monotype_(m);
     if (accept(TokenType::RIGHTARROW)) {
-      auto t = make_shared<Mono>();
-      t->is_const = true;
-      t->D = "->";
-      t->tau.push_back(mo);
-      t->tau.push_back(parse_monotype(m));
+      auto t = new_const_var("->");
+      t->tau.push_back(to_poly(mo));
+      t->tau.push_back(to_poly(parse_monotype(m)));
       mo = t;
     }
     return mo;
   }
 
-  shared_ptr<Mono> parse_monotype_(map<string, shared_ptr<Mono>> &m) {
-    shared_ptr<Mono> mo;
+  shared_ptr<Mono_> parse_monotype_(map<string, shared_ptr<Mono_>> &m) {
+    shared_ptr<Mono_> mo;
     if (accept(TokenType::IDENTIFIER)) {
       if (m.count(t.data)) {
         mo = m[t.data];
       } else {
-        mo = make_shared<Mono>();
-        mo->is_const = true;
-        mo->D = t.data;
+        mo = new_const_var(t.data);
       }
     } else {
       expect(TokenType::LEFT_PARENTHESIS);
@@ -94,23 +90,21 @@ struct Parser {
           if (m.count(t.data)) {
             mo = m[t.data];
           } else {
-            mo = make_shared<Mono>();
-            mo->is_const = true;
-            mo->D = t.data;
+            mo = new_const_var(t.data);
           }
         } else {
           expect(TokenType::LEFT_PARENTHESIS);
           mo = parse_monotype(m);
           expect(TokenType::RIGHT_PARENTHESIS);
         }
-        t1->tau.push_back(mo);
+        t1->tau.push_back(to_poly(mo));
       }
       mo = t1;
     }
     return mo;
   }
 
-  shared_ptr<Poly> parse_polytype(map<string, shared_ptr<Mono>> &m) {
+  shared_ptr<Poly_> parse_polytype(map<string, shared_ptr<Mono_>> &m) {
     if (accept(TokenType::FORALL)) {
       expect(TokenType::IDENTIFIER);
       if (m.count(t.data)) {
@@ -123,11 +117,12 @@ struct Parser {
              << "`" << data << "`" << endl;
         exit(EXIT_FAILURE);
       }
-      auto alpha = m[t.data] = make_shared<Mono>(Mono{false});
+      auto alpha = new_forall_var();
+      m[t.data] = alpha;
       expect(TokenType::DOT);
-      return make_shared<Poly>(Poly{true, nullptr, alpha, parse_polytype(m)});
+      return to_poly(alpha, parse_polytype(m));
     } else {
-      return make_shared<Poly>(Poly{false, parse_monotype(m)});
+      return to_poly(parse_monotype(m));
     }
   }
 
@@ -145,18 +140,22 @@ struct Parser {
     }
     c->name = t.data;
     expect(TokenType::COLON);
-    map<string, shared_ptr<Mono>> m;
+    map<string, shared_ptr<Mono_>> m;
     c->type = parse_polytype(m);
     (*constructor_decl)[c->name] = c;
     auto tp = c->type;
-    while (tp->is_poly) {
+    while (!tp->is_mono) {
       tp = tp->sigma;
     }
     auto tm = tp->tau;
     c->arg = 0;
     while (tm->is_const && tm->D == "->") {
       c->arg++;
-      tm = tm->tau[1];
+      auto tp = tm->tau[1];
+      while (!tp->is_mono) {
+        tp = tp->sigma;
+      }
+      tm = tp->tau;
     }
     return c;
   }
@@ -212,12 +211,12 @@ struct Parser {
       expect(TokenType::RIGHTARROW);
       expr->e = parse_expr();
     } else if (accept(TokenType::LET)) {
-      shared_ptr<Poly> s;
+      shared_ptr<Poly_> s;
       expr->T = ExprType::LET;
       expect(TokenType::IDENTIFIER);
       expr->x = t.data;
       if (accept(TokenType::COLON)) {
-        map<string, shared_ptr<Mono>> m;
+        map<string, shared_ptr<Mono_>> m;
         s = parse_polytype(m);
       }
       expect(TokenType::EQUAL);
@@ -229,7 +228,7 @@ struct Parser {
       expr->T = ExprType::REC;
       set<string> st;
       do {
-        shared_ptr<Poly> s;
+        shared_ptr<Poly_> s;
         expect(TokenType::IDENTIFIER);
         if (st.count(t.data)) {
           string data = t.data;
@@ -243,7 +242,7 @@ struct Parser {
         st.insert(t.data);
         expr->xes.push_back(make_pair(t.data, nullptr));
         if (accept(TokenType::COLON)) {
-          map<string, shared_ptr<Mono>> m;
+          map<string, shared_ptr<Mono_>> m;
           s = parse_polytype(m);
         }
         expect(TokenType::EQUAL);
@@ -293,9 +292,9 @@ struct Parser {
       expr->T = ExprType::CASE;
       expr->e = parse_expr();
       expect(TokenType::OF);
-      shared_ptr<Poly> g;
+      shared_ptr<Poly_> g;
       if (accept(TokenType::COLON)) {
-        map<string, shared_ptr<Mono>> m;
+        map<string, shared_ptr<Mono_>> m;
         g = parse_polytype(m);
       }
       expr->gadt = g;
@@ -374,13 +373,25 @@ struct Parser {
     }
     return expr;
   }
-  void check(shared_ptr<Constructor> c, shared_ptr<Mono> p,
-             set<shared_ptr<Mono>> &st, bool m, bool r) {
+  void check(shared_ptr<Constructor> c, shared_ptr<Mono_> p,
+             set<shared_ptr<Mono_>> &st, bool m, bool r) {
     if (p->is_const) {
       if (p->D == "->") {
         assert(p->tau.size() == 2);
-        check(c, p->tau[0], st, m && false, r);
-        check(c, p->tau[1], st, m && true, r);
+        {
+          auto tp = p->tau[0];
+          while (!tp->is_mono) {
+            tp = tp->sigma;
+          }
+          check(c, tp->tau, st, m && false, r);
+        }
+        {
+          auto tp = p->tau[1];
+          while (!tp->is_mono) {
+            tp = tp->sigma;
+          }
+          check(c, tp->tau, st, m && true, r);
+        }
       } else {
         if (data_decl->count(p->D)) {
           if (m) {
@@ -400,7 +411,11 @@ struct Parser {
             exit(EXIT_FAILURE);
           }
           for (size_t i = 0; i < p->tau.size(); i++) {
-            check(c, p->tau[i], st, false, m || r);
+            auto tp = p->tau[i];
+            while (!tp->is_mono) {
+              tp = tp->sigma;
+            }
+            check(c, tp->tau, st, false, m || r);
           }
           if (m) {
             if (!st.empty()) {
@@ -440,9 +455,9 @@ struct Parser {
       parse_data();
     }
     for (auto &c : *constructor_decl) {
-      shared_ptr<Poly> p = c.second->type;
-      set<shared_ptr<Mono>> st;
-      while (p->is_poly) {
+      shared_ptr<Poly_> p = c.second->type;
+      set<shared_ptr<Mono_>> st;
+      while (!p->is_mono) {
         st.insert(p->alpha);
         p = p->sigma;
       }
