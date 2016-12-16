@@ -379,7 +379,7 @@ struct CodeGenerator {
               auto c = da->constructors[i];
               if (i != da->to_ptr && expr->pes.count(c->name)) {
                 auto &pes = expr->pes.find(c->name)->second;
-                if (c->arg == 1) {
+                if (c->arg == 1 && da->constructors.size() == 1) {
                   nout << "  " << BSL_RT_VAR_T << " " << var(pes.first.front())
                        << " = " << tmp() << ";" << endl;
                 } else {
@@ -463,7 +463,7 @@ struct CodeGenerator {
             for (size_t i = 0; i < da->constructors.size(); i++) {
               if (i != da->to_ptr) {
                 auto c = da->constructors[i];
-                if (c->arg == 1) {
+                if (c->arg == 1 && da->constructors.size() == 1) {
                 } else {
                   for (size_t i = 0; i < c->arg; i++) {
                     out << "  " << BSL_RT_VAR_T << " " << arg(i) << ";" << endl;
@@ -498,7 +498,7 @@ struct CodeGenerator {
                       << ";" << endl;
                 }
               } else {
-                if (c->arg == 1) {
+                if (c->arg == 1 && da->constructors.size() == 1) {
                   out << "  " << tmp() << " = " << var(arg(0)) << ";" << endl;
                 } else {
                   for (size_t j = 0; j < c->arg; j++) {
@@ -545,7 +545,7 @@ struct CodeGenerator {
                    da->constructors.size() > 2)) {
                 s << BSL_RT_MALLOC << "(sizeof(" << type(c->data_name) << "))";
               } else {
-                if (c->arg == 1) {
+                if (c->arg == 1 && da->constructors.size() == 1) {
                   s << "NULL";
                 } else {
                   s << BSL_RT_MALLOC << "(sizeof(" << type(c->data_name)

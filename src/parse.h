@@ -321,9 +321,9 @@ struct Parser {
                << "`" << data << "`" << endl;
           exit(EXIT_FAILURE);
         }
-string cname=t.data;
-expr->pes[cname]=make_pair(vector<string>{}, nullptr);
-        auto& pes=expr->pes[cname];
+        string cname = t.data;
+        expr->pes[cname] = make_pair(vector<string>{}, nullptr);
+        auto &pes = expr->pes[cname];
         auto c = (*constructor_decl)[cname];
         if (data_name.empty()) {
           data_name = c->data_name;
