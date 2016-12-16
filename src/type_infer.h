@@ -376,6 +376,24 @@ void infer(shared_ptr<Expr> expr,
           unify(gadt, inst(fn.second));
         }
         expr->gadt = gen(context, gadt);
+        auto t = expr->gadt;
+        while (t->is_poly) {
+          t = t->sigma;
+        }
+        assert(t->tau->is_const && t->tau->D == "->" &&
+               t->tau->tau[0]->is_const && dnc.first->count(t->tau->tau[0]->D));
+      } else {
+        auto t = expr->gadt;
+        while (t->is_poly) {
+          t = t->sigma;
+        }
+        if (!(t->tau->is_const && t->tau->D == "->" &&
+              t->tau->tau[0]->is_const &&
+              dnc.first->count(t->tau->tau[0]->D))) {
+          cerr << "type error: invaliad signature for case expression" << endl
+               << to_string(expr->gadt) << endl;
+          exit(EXIT_FAILURE);
+        }
       }
       // for (auto& fn : fns) {
       //  cerr << "//case " << fn.first << " : " << to_string(fn.second) <<

@@ -82,7 +82,7 @@ let zero:Int = ffi ` 0 ` in
 let one:Int = ffi ` 1 ` in
 let two:Int = ffi ` 2 ` in
 let ten:Int = ffi ` 10 ` in
-let undefined:forall a.Unit->a = \_ -> ffi  ` (puts("undefined"), exit(-1), NULL) ` in
+let undefined:forall a.Unit->a = \_ -> ffi  ` (puts("undefined"), exit(EXIT_FAILURE), NULL) ` in
 rec take = \x -> \l -> case eq zero x of {
   True -> Nil;
   False -> Cons (case force l of { LCons h _ -> force h; LNil -> undefined Unit })

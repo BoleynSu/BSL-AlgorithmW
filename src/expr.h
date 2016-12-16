@@ -27,7 +27,7 @@ struct Expr {
   Position pos;
   set<string> fv;
 
-  string to_string(size_t indent = 0, const string& indents = "") {
+  string to_string(size_t indent = 0, const string &indents = "") {
     stringstream s;
     switch (T) {
       case ExprType::VAR:
@@ -82,7 +82,7 @@ struct Expr {
       } break;
       case ExprType::CASE: {
         s << "case " << e->to_string(indent, indents) << " of {" << endl;
-        for (auto& pes_ : pes) {
+        for (auto &pes_ : pes) {
           auto pes = pes_.second;
           for (size_t i = 0; i < indent + 1; i++) {
             s << indents;

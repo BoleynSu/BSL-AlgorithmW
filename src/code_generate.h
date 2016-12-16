@@ -316,8 +316,9 @@ struct CodeGenerator {
         while (t->is_poly) {
           t = t->sigma;
         }
+        assert(t->tau->is_const && t->tau->D == "->" &&
+               t->tau->tau[0]->is_const && data->count(t->tau->tau[0]->D));
         auto da = (*data)[t->tau->tau[0]->D];
-
         if (da->to_ptr != numeric_limits<size_t>::max()) {
           assert(da->constructors.size());
           if (expr->pes.count(da->constructors[da->to_ptr]->name)) {
