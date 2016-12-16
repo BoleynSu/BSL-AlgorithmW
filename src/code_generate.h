@@ -554,7 +554,7 @@ struct CodeGenerator {
                 }
               }
             } else {
-              s << "NULL" << endl;
+              s << "NULL";
             }
           }
           for (size_t j = 0; j < c->arg; j++) {
