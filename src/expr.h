@@ -20,14 +20,14 @@ struct Expr {
   string x;
   shared_ptr<Expr> e1, e2, e;
   vector<pair<string, shared_ptr<Expr>>> xes;
-  vector<pair<vector<string>, shared_ptr<Expr>>> pes;
+  map<string, pair<vector<string>, shared_ptr<Expr>>> pes;
   string ffi;
   shared_ptr<Mono> type;
   shared_ptr<Poly> sig, gadt;
   Position pos;
   set<string> fv;
 
-  string to_string(size_t indent = 0, const string &indents = "") {
+  string to_string(size_t indent = 0, const string& indents = "") {
     stringstream s;
     switch (T) {
       case ExprType::VAR:
@@ -82,15 +82,17 @@ struct Expr {
       } break;
       case ExprType::CASE: {
         s << "case " << e->to_string(indent, indents) << " of {" << endl;
-        for (size_t i = 0; i < pes.size(); i++) {
+        for (auto& pes_ : pes) {
+          auto pes = pes_.second;
           for (size_t i = 0; i < indent + 1; i++) {
             s << indents;
           }
-          for (size_t j = 0; j < pes[i].first.size(); j++) {
-            s << pes[i].first[j] << (j + 1 == pes[i].first.size() ? "" : " ");
+          s << pes_.first;
+          for (size_t j = 0; j < pes.first.size(); j++) {
+            s << " " << pes.first[j];
           }
-          s << "->" << pes[i].second->to_string(indent + 1, indents)
-            << (i + 1 == pes.size() ? "" : ";") << endl;
+          s << "->" << pes.second->to_string(indent + 1, indents) << ";"
+            << endl;
         }
         for (size_t i = 0; i < indent; i++) {
           s << indents;

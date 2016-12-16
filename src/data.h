@@ -21,6 +21,7 @@ struct Data {
   size_t arg;
   vector<shared_ptr<Constructor>> constructors;
   size_t maxarg;
+  size_t to_ptr;
 };
 
 #endif

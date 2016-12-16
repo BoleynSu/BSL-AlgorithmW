@@ -331,16 +331,17 @@ void infer(shared_ptr<Expr> expr,
     }
     case ExprType::CASE: {
       map<string, shared_ptr<Poly>> fns;
-      for (size_t i = 0; i < expr->pes.size(); i++) {
-        auto tau = inst((*context)[expr->pes[i].first[0]]);
+      for (auto &pes_ : expr->pes) {
+        auto pes = pes_.second;
+        auto tau = inst((*context)[pes_.first]);
         vector<shared_ptr<Mono>> taus_1;
         vector<shared_ptr<Poly>> contextx_1;
-        for (size_t j = 1; j < expr->pes[i].first.size(); j++) {
+        for (size_t i = 0; i < pes.first.size(); i++) {
           taus_1.push_back(newvar());
           auto t1 = make_shared<Mono>(), t2 = newvar();
           t1->is_const = true;
           t1->D = "->";
-          t1->tau.push_back(taus_1[j - 1]);
+          t1->tau.push_back(taus_1[i]);
           t1->tau.push_back(t2);
           unify(t1, tau);
           tau = t2;
@@ -349,25 +350,24 @@ void infer(shared_ptr<Expr> expr,
         fn->is_const = true;
         fn->D = "->";
         fn->tau.push_back(tau);
-        for (size_t j = 1; j < expr->pes[i].first.size(); j++) {
-          if (context->count(expr->pes[i].first[j])) {
-            contextx_1.push_back((*context)[expr->pes[i].first[j]]);
+        for (size_t i = 0; i < pes.first.size(); i++) {
+          if (context->count(pes.first[i])) {
+            contextx_1.push_back((*context)[pes.first[i]]);
           } else {
             contextx_1.push_back(nullptr);
           }
-          (*context)[expr->pes[i].first[j]] =
-              make_shared<Poly>(Poly{false, taus_1[j - 1]});
+          (*context)[pes.first[i]] = make_shared<Poly>(Poly{false, taus_1[i]});
         }
-        infer(expr->pes[i].second, context, dnc);
-        for (size_t j = 1; j < expr->pes[i].first.size(); j++) {
-          if (contextx_1[j - 1] == nullptr) {
-            context->erase(expr->pes[i].first[j]);
+        infer(pes.second, context, dnc);
+        for (size_t i = 0; i < pes.first.size(); i++) {
+          if (contextx_1[i] == nullptr) {
+            context->erase(pes.first[i]);
           } else {
-            (*context)[expr->pes[i].first[j]] = contextx_1[j - 1];
+            (*context)[pes.first[i]] = contextx_1[i];
           }
         }
-        fn->tau.push_back(expr->pes[i].second->type);
-        fns[expr->pes[i].first[0]] = gen(context, fn);
+        fn->tau.push_back(pes.second->type);
+        fns[pes_.first] = gen(context, fn);
       }
 
       if (expr->gadt == nullptr) {

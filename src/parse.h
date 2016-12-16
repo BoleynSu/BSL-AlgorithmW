@@ -301,9 +301,7 @@ struct Parser {
       expr->gadt = g;
       expect(TokenType::LEFT_BRACE);
       string data_name;
-      set<string> st;
       do {
-        expr->pes.push_back(make_pair(vector<string>{}, nullptr));
         expect(TokenType::IDENTIFIER);
         if (!constructor_decl->count(t.data)) {
           string data = t.data;
@@ -314,7 +312,7 @@ struct Parser {
                << "`" << data << "`" << endl;
           exit(EXIT_FAILURE);
         }
-        if (st.count(t.data)) {
+        if (expr->pes.count(t.data)) {
           string data = t.data;
           if (data.length() > 78) {
             data = data.substr(0, 75) + "...";
@@ -323,9 +321,10 @@ struct Parser {
                << "`" << data << "`" << endl;
           exit(EXIT_FAILURE);
         }
-        st.insert(t.data);
-        expr->pes.back().first.push_back(t.data);
-        auto c = (*constructor_decl)[expr->pes.back().first.front()];
+string cname=t.data;
+expr->pes[cname]=make_pair(vector<string>{}, nullptr);
+        auto& pes=expr->pes[cname];
+        auto c = (*constructor_decl)[cname];
         if (data_name.empty()) {
           data_name = c->data_name;
         } else if (data_name != c->data_name) {
@@ -338,10 +337,10 @@ struct Parser {
                << "`" << data << "`" << endl;
           exit(EXIT_FAILURE);
         }
-        set<string> st_;
+        set<string> st;
         for (size_t i = 0; i < c->arg; i++) {
           expect(TokenType::IDENTIFIER);
-          if (st_.count(t.data)) {
+          if (st.count(t.data)) {
             string data = t.data;
             if (data.length() > 78) {
               data = data.substr(0, 75) + "...";
@@ -351,11 +350,11 @@ struct Parser {
                  << "`" << data << "`" << endl;
             exit(EXIT_FAILURE);
           }
-          st_.insert(t.data);
-          expr->pes.back().first.push_back(t.data);
+          st.insert(t.data);
+          pes.first.push_back(t.data);
         }
         expect(TokenType::RIGHTARROW);
-        expr->pes.back().second = parse_expr();
+        pes.second = parse_expr();
         if (!match(TokenType::RIGHT_BRACE)) {
           expect(TokenType::SEMICOLON);
         }

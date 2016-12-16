@@ -6,7 +6,7 @@
 #include "expr.h"
 
 void calculate_free_variable(shared_ptr<Expr> e) {
-  auto &fv = e->fv;
+  auto& fv = e->fv;
   switch (e->T) {
     case ExprType::VAR: {
       fv.insert(e->x);
@@ -43,12 +43,13 @@ void calculate_free_variable(shared_ptr<Expr> e) {
     case ExprType::CASE: {
       calculate_free_variable(e->e);
       fv.insert(e->e->fv.begin(), e->e->fv.end());
-      for (size_t i = 0; i < e->pes.size(); i++) {
+      for (auto& pes_ : e->pes) {
+        auto pes = pes_.second;
         set<string> fvi;
-        calculate_free_variable(e->pes[i].second);
-        fvi.insert(e->pes[i].second->fv.begin(), e->pes[i].second->fv.end());
-        for (size_t j = 1; j < e->pes[i].first.size(); j++) {
-          fvi.erase(e->pes[i].first[j]);
+        calculate_free_variable(pes.second);
+        fvi.insert(pes.second->fv.begin(), pes.second->fv.end());
+        for (size_t i = 0; i < pes.first.size(); i++) {
+          fvi.erase(pes.first[i]);
         }
         fv.insert(fvi.begin(), fvi.end());
       }
