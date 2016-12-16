@@ -1,27 +1,27 @@
 #!/usr/bin/env bsl
 
-data Int where {}
+data Int {}
 
-data Unit where {
+data Unit {
   Unit:Unit
 }
 
-data Bool where {
+data Bool {
   False:Bool;
   True:Bool
 }
 
-data Maybe a where {
+data Maybe a {
   Just:forall a.a->Maybe a;
   Nothing:forall a.Maybe a
 }
 
-data List a where {
+data List a {
   Nil:forall a.List a;
   Cons:forall a.a->List a->List a
 }
 
-data Expr a where {
+data Expr a {
   I:Int->Expr Int;
   B:Bool->Expr Bool;
   Add:Expr Int->Expr Int->Expr Int;
@@ -30,12 +30,12 @@ data Expr a where {
   If:forall a.Expr Bool->Expr a->Expr a->Expr a
 }
 
-data IOImpl a where {
+data IOImpl a {
   Read:forall a.(Unit->Maybe Int->a)->IOImpl a;
   Write:forall a.Int->(Unit->a)->IOImpl a
 }
 
-data IO a where {
+data IO a {
   Pure:forall a.a->IO a;
   Free:forall a.IOImpl (IO a)->IO a
 }

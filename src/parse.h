@@ -176,7 +176,7 @@ struct Parser {
     d->name = t.data;
     d->arg = 0;
     set<string> st;
-    while (!accept(TokenType::WHERE)) {
+    while (!match(TokenType::LEFT_BRACE)) {
       expect(TokenType::IDENTIFIER);
       if (st.count(t.data)) {
         string data = t.data;

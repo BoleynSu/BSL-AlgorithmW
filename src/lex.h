@@ -24,7 +24,6 @@ enum class TokenType {
   HASHBANG,
 
   DATA,
-  WHERE,
   FORALL,
   DOT,
   COLON,
@@ -61,9 +60,6 @@ ostream &operator<<(ostream &out, TokenType t) {
       break;
     case TokenType::DATA:
       out << "DATA";
-      break;
-    case TokenType::WHERE:
-      out << "WHERE";
       break;
     case TokenType::FORALL:
       out << "FORALL";
@@ -255,16 +251,12 @@ struct Lexer {
         token_type = TokenType::HASHBANG;
       } else if (data == "data") {
         token_type = TokenType::DATA;
-      } else if (data == "where") {
-        token_type = TokenType::WHERE;
       } else if (data == "forall") {
         token_type = TokenType::FORALL;
       } else if (data == ".") {
         token_type = TokenType::DOT;
       } else if (data == ":") {
         token_type = TokenType::COLON;
-      } else if (data == "where") {
-        token_type = TokenType::WHERE;
       } else if (data == "->") {
         token_type = TokenType::RIGHTARROW;
       } else if (data == ";") {
