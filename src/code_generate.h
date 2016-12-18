@@ -34,6 +34,7 @@ const string BSL_TYPE_ = "BSL_TYPE_";
 const string BSL_TAG_ = "BSL_TAG_";
 const string BSL_CON_ = "BSL_CON_";
 const string BSL_FUN_ = "BSL_FUN_";
+const string BSL_BLK_ = "BSL_BLK_";
 const string BSL_VAR_ = "BSL_VAR_";
 const string BSL_ENV = "BSL_ENV";
 
@@ -41,6 +42,7 @@ struct CodeGenerator {
   Parser &parser;
   ostream &out;
   shared_ptr<map<string, shared_ptr<Data>>> data;
+  vector<shared_ptr<stringstream>> blks;
   vector<shared_ptr<stringstream>> fns;
   set<size_t> cons;
   CodeGenerator(Parser &parser, ostream &out) : parser(parser), out(out) {
@@ -85,6 +87,11 @@ struct CodeGenerator {
   string fun(size_t i) {
     stringstream ss;
     ss << BSL_FUN_ << i;
+    return ss.str();
+  }
+  string blk(size_t i) {
+    stringstream ss;
+    ss << BSL_BLK_ << i;
     return ss.str();
   }
   string ffi(const string &f,
@@ -180,11 +187,11 @@ struct CodeGenerator {
             env_.insert(make_pair(fv, env_.size()));
           }
         }
-        size_t fn_idx = fns.size();
-        fns.push_back(make_shared<stringstream>());
-        auto &nout = *fns.back();
-        nout << BSL_RT_VAR_T << " " << fun(fn_idx) << "(" << BSL_RT_VAR_T << " "
-             << var(expr->x);
+        size_t blk_idx = blks.size();
+        blks.push_back(make_shared<stringstream>());
+        auto &nout = *blks.back();
+        nout << BSL_RT_VAR_T << " " << blk(blk_idx) << "(" << BSL_RT_VAR_T
+             << " " << var(expr->x);
         for (auto &e : env_) {
           nout << ", " << BSL_RT_VAR_T << " " << var(e.first);
         }
@@ -192,7 +199,7 @@ struct CodeGenerator {
         codegen(nout, expr->e2, map<string, size_t>());
         nout << ";" << endl << "}" << endl;
 
-        out << fun(fn_idx) << "(";
+        out << blk(blk_idx) << "(";
         codegen(out, expr->e1, env);
         for (auto &fv : env_) {
           out << ", " << var(fv.first, env);
@@ -212,10 +219,10 @@ struct CodeGenerator {
         for (auto &v : fv) {
           env_.insert(make_pair(v, env_.size()));
         }
-        size_t fn_idx = fns.size();
-        fns.push_back(make_shared<stringstream>());
-        auto &nout = *fns.back();
-        nout << BSL_RT_VAR_T << " " << fun(fn_idx) << "(";
+        size_t blk_idx = blks.size();
+        blks.push_back(make_shared<stringstream>());
+        auto &nout = *blks.back();
+        nout << BSL_RT_VAR_T << " " << blk(blk_idx) << "(";
         {
           bool first = true;
           for (auto &e : env_) {
@@ -260,7 +267,7 @@ struct CodeGenerator {
         codegen(nout, expr->e, map<string, size_t>());
         nout << ";" << endl << "}" << endl;
 
-        out << fun(fn_idx) << "(";
+        out << blk(blk_idx) << "(";
         {
           bool first = true;
           for (auto &fv : env_) {
@@ -293,11 +300,11 @@ struct CodeGenerator {
         for (auto &v : fv) {
           env_.insert(make_pair(v, env_.size()));
         }
-        size_t fn_idx = fns.size();
-        fns.push_back(make_shared<stringstream>());
-        auto &nout = *fns.back();
-        nout << BSL_RT_VAR_T << " " << fun(fn_idx) << "(" << BSL_RT_VAR_T << " "
-             << tmp();
+        size_t blk_idx = blks.size();
+        blks.push_back(make_shared<stringstream>());
+        auto &nout = *blks.back();
+        nout << BSL_RT_VAR_T << " " << blk(blk_idx) << "(" << BSL_RT_VAR_T
+             << " " << tmp();
         for (auto &e : env_) {
           nout << ", " << BSL_RT_VAR_T << " " << var(e.first);
         }
@@ -386,7 +393,7 @@ struct CodeGenerator {
         }
         nout << "}" << endl;
 
-        out << fun(fn_idx) << "(";
+        out << blk(blk_idx) << "(";
         codegen(out, expr->e, env);
         for (auto &fv : env_) {
           out << ", " << var(fv.first, env);
@@ -572,8 +579,8 @@ struct CodeGenerator {
     codegen(main, optimize(expr), map<string, size_t>());
 
     for (size_t i : cons) {
-      out << BSL_RT_VAR_T << " " << BSL_CON_ << i << "(" << BSL_RT_CLOSURE_T
-          << " " << tmp() << ", " << BSL_RT_FUN_T << " fun";
+      out << "inline " << BSL_RT_VAR_T << " " << BSL_CON_ << i << "("
+          << BSL_RT_CLOSURE_T << " " << tmp() << ", " << BSL_RT_FUN_T << " fun";
       for (size_t j = 0; j < i; j++) {
         out << ", " << BSL_RT_VAR_T << " " << var(arg(j));
       }
@@ -594,8 +601,17 @@ struct CodeGenerator {
       header.back() = ';';
       out << header << endl;
     }
+    for (size_t i = 0; i < blks.size(); i++) {
+      string blk = blks[i]->str();
+      string header = blk.substr(0, blk.find('{'));
+      header.back() = ';';
+      out << "inline " << header << endl;
+    }
     for (auto fn : fns) {
-      out << fn->str();
+      out << "inline " << fn->str();
+    }
+    for (auto blk : blks) {
+      out << "inline " << blk->str();
     }
     out << "int main() { " << main.str() << "; }" << endl;
   }
