@@ -395,6 +395,23 @@ struct Lexer {
               }
             } else {
               data.push_back(c);
+              if (c == '\n') {
+                position.endRow++;
+                position.endColumn = 1;
+              } else if (c == '\r') {
+                c = in.get();
+                if (c != EOF) {
+                  if (c == '\n') {
+                    data.push_back(c);
+                  } else {
+                    in.putback(c);
+                  }
+                }
+                position.endRow++;
+                position.endColumn = 1;
+              } else {
+                position.endColumn++;
+              }
               position.endColumn++;
             }
           } else {

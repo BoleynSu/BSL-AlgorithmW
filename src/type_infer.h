@@ -183,7 +183,8 @@ void infer(shared_ptr<Expr> expr, shared_ptr<Context> context,
                 shared_ptr<map<string, shared_ptr<Constructor>>>> &dnc) {
   switch (expr->T) {
     case ExprType::VAR:
-      if (context->has_poly(expr->x)) {
+      if (context->has_rank2poly(expr->x)) {
+      } else if (context->has_poly(expr->x)) {
         auto t = context->get_poly(expr->x);
         expr->type = inst(t);
       } else {

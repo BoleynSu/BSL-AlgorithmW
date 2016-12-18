@@ -155,12 +155,12 @@ struct Parser {
       }
       if (match(TokenType::FORALL)) {
         auto poly = parse_polytype(m);
-        expect(TokenType::RIGHTARROW);
-        auto mono = parse_monotype(m);
-        r.second = new_rank2poly(poly, mono);
         for (size_t i = 0; i < cnt; i++) {
           expect(TokenType::RIGHT_PARENTHESIS);
         }
+        expect(TokenType::RIGHTARROW);
+        auto mono = parse_monotype(m);
+        r.second = new_rank2poly(poly, mono);
       } else {
         auto mo = parse_monotype(m);
         for (size_t i = 0; i < cnt; i++) {
@@ -200,11 +200,15 @@ struct Parser {
       c->sig = r.first;
     }
     (*constructor_decl)[c->name] = c;
-    auto tm = get_mono(c->sig);
-    c->arg = 0;
-    while (is_c(tm) && tm->D == "->") {
-      c->arg++;
-      tm = tm->tau[1];
+    if (c->rank2sig != nullptr) {
+      c->arg = 1;
+    } else {
+      auto tm = get_mono(c->sig);
+      c->arg = 0;
+      while (is_c(tm) && tm->D == "->") {
+        c->arg++;
+        tm = tm->tau[1];
+      }
     }
     return c;
   }
