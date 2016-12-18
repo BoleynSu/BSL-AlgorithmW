@@ -243,15 +243,24 @@ struct CodeGenerator {
           auto t = find(expr->xes[i].second->type);
           if (is_c(t) && t->D == "->" &&
               expr->xes[i].second->T == ExprType::ABS) {
-            nout << "  " << var(expr->xes[i].first, env_) << " = "
-                 << BSL_RT_MALLOC << "(";
-            cons.insert(expr->xes[i].second->fv.size());
-            nout << "sizeof(" << BSL_RT_FUN_T << ") + "
-                 << expr->xes[i].second->fv.size() << " * sizeof("
-                 << BSL_RT_VAR_T << "));" << endl;
-            nnout << "  ";
-            codegen(nnout, expr->xes[i].second, env_, expr->xes[i].first);
-            nnout << ";" << endl;
+            if (env_.count(expr->xes[i].first)) {
+              nout << "  " << var(expr->xes[i].first, env_) << " = "
+                   << BSL_RT_MALLOC << "(";
+              cons.insert(expr->xes[i].second->fv.size());
+              nout << "sizeof(" << BSL_RT_FUN_T << ") + "
+                   << expr->xes[i].second->fv.size() << " * sizeof("
+                   << BSL_RT_VAR_T << "));" << endl;
+              nnout << "  ";
+              codegen(nnout, expr->xes[i].second, env_, expr->xes[i].first);
+              nnout << ";" << endl;
+            } else {
+              string data = expr->to_string(0, "  ");
+              if (data.length() > 80) {
+                data = data.substr(0, 77) + "...";
+              }
+              cerr << "code generator: rec is not used" << endl << data << endl;
+              exit(EXIT_FAILURE);
+            }
           } else {
             string data = expr->to_string(0, "  ");
             if (data.length() > 80) {
@@ -424,6 +433,7 @@ struct CodeGenerator {
                    prog) {
     data = prog.first.first;
     auto expr = prog.second;
+    auto context = make_shared<Context>();
 
     out << "#include <bsl_rt.h>" << endl;
 
@@ -567,14 +577,18 @@ struct CodeGenerator {
           cur->T = ExprType::FFI;
           cur->ffi = s.str();
           e->e1 = lam;
-          e->e1->sig = c->sig;
+          if (c->rank2sig != nullptr) {
+            context->set_rank2poly(c->name, c->rank2sig);
+          } else {
+            context->set_poly(c->name, c->sig);
+          }
           e->e2 = expr;
           expr = e;
         }
       }
     }
 
-    infer(expr, make_shared<map<string, shared_ptr<Poly>>>(), prog.first);
+    infer(prog.second, context, prog.first);
 
     stringstream main;
     codegen(main, optimize(expr), map<string, size_t>());

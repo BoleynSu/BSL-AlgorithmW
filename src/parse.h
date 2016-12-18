@@ -2,7 +2,6 @@
 #define SU_BOLEYN_BSL_PARSE_H
 
 #include <cassert>
-#include <cassert>
 #include <cstdlib>
 #include <iostream>
 #include <map>
@@ -126,8 +125,60 @@ struct Parser {
       return new_poly(parse_monotype(m));
     }
   }
+  pair<shared_ptr<Poly>, shared_ptr<Rank2Poly>> parse_polytype_or_rank2polytype(
+      map<string, shared_ptr<Mono>> &m) {
+    pair<shared_ptr<Poly>, shared_ptr<Rank2Poly>> r;
+    if (accept(TokenType::FORALL)) {
+      expect(TokenType::IDENTIFIER);
+      if (m.count(t.data)) {
+        string data = t.data;
+        if (data.length() > 78) {
+          data = data.substr(0, 75) + "...";
+        }
+        cerr << "parser: " << t.position << " type variable names conflict"
+             << endl
+             << "`" << data << "`" << endl;
+        exit(EXIT_FAILURE);
+      }
+      auto alpha = m[t.data] = new_forall_var();
+      expect(TokenType::DOT);
+      r = parse_polytype_or_rank2polytype(m);
+      if (r.second != nullptr) {
+        r.second = new_rank2poly(alpha, r.second);
+      } else {
+        r.first = new_poly(alpha, r.first);
+      }
+    } else {
+      size_t cnt = 0;
+      while (accept(TokenType::LEFT_PARENTHESIS)) {
+        cnt++;
+      }
+      if (match(TokenType::FORALL)) {
+        auto poly = parse_polytype(m);
+        expect(TokenType::RIGHTARROW);
+        auto mono = parse_monotype(m);
+        r.second = new_rank2poly(poly, mono);
+        for (size_t i = 0; i < cnt; i++) {
+          expect(TokenType::RIGHT_PARENTHESIS);
+        }
+      } else {
+        auto mo = parse_monotype(m);
+        for (size_t i = 0; i < cnt; i++) {
+          expect(TokenType::RIGHT_PARENTHESIS);
+        }
+        if (accept(TokenType::RIGHTARROW)) {
+          auto t = new_const_var("->");
+          t->tau.push_back(mo);
+          t->tau.push_back(parse_monotype(m));
+          mo = t;
+        }
+        r.first = new_poly(mo);
+      }
+    }
+    return r;
+  }
 
-  shared_ptr<Constructor> parse_constructor(map<string, shared_ptr<Mono>> &m) {
+  shared_ptr<Constructor> parse_constructor() {
     auto c = make_shared<Constructor>();
     expect(TokenType::IDENTIFIER);
     if (constructor_decl->count(t.data)) {
@@ -141,7 +192,13 @@ struct Parser {
     }
     c->name = t.data;
     expect(TokenType::COLON);
-    c->sig = parse_polytype(m);
+    map<string, shared_ptr<Mono>> m;
+    auto r = parse_polytype_or_rank2polytype(m);
+    if (r.second != nullptr) {
+      c->rank2sig = r.second;
+    } else {
+      c->sig = r.first;
+    }
     (*constructor_decl)[c->name] = c;
     auto tm = get_mono(c->sig);
     c->arg = 0;
@@ -184,8 +241,7 @@ struct Parser {
     }
     expect(TokenType::LEFT_BRACE);
     while (!accept(TokenType::RIGHT_BRACE)) {
-      map<string, shared_ptr<Mono>> m;
-      d->constructors.push_back(parse_constructor(m));
+      d->constructors.push_back(parse_constructor());
       d->constructors.back()->data_name = d->name;
       if (!match(TokenType::RIGHT_BRACE)) {
         expect(TokenType::SEMICOLON);
@@ -359,7 +415,7 @@ struct Parser {
       } while (!match(TokenType::RIGHT_BRACE));
       expect(TokenType::RIGHT_BRACE);
       if (g != nullptr) {
-        check(data_decl, expr->xes.back().second);
+        check(data_decl, expr);
       }
     } else if (accept(TokenType::FFI)) {
       // TODO support typeof() FIXME ffi must have a sig

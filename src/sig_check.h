@@ -14,6 +14,8 @@
 #include "data.h"
 #include "type.h"
 
+using namespace std;
+
 void check(shared_ptr<Constructor> c, shared_ptr<Mono> p,
            set<shared_ptr<Mono>> &st, bool m, bool r,
            shared_ptr<map<string, shared_ptr<Data>>> data) {
@@ -77,13 +79,17 @@ void check(shared_ptr<map<string, shared_ptr<Data>>> data, shared_ptr<Expr> e) {
 void check(shared_ptr<map<string, shared_ptr<Data>>> data,
            shared_ptr<map<string, shared_ptr<Constructor>>> cons) {
   for (auto &c : *cons) {
-    shared_ptr<Poly> p = c.second->sig;
-    set<shared_ptr<Mono>> st;
-    while (!p->is_mono) {
-      st.insert(p->alpha);
-      p = p->sigma;
+    if (c.second->rank2sig != nullptr) {
+      // TODO
+    } else {
+      auto p = c.second->sig;
+      set<shared_ptr<Mono>> st;
+      while (!p->is_mono) {
+        st.insert(p->alpha);
+        p = p->sigma;
+      }
+      check(c.second, p->tau, st, true, false, data);
     }
-    check(c.second, p->tau, st, true, false, data);
   }
 }
 

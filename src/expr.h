@@ -81,7 +81,11 @@ struct Expr {
         s << "in " << e->to_string(indent + 1, indents) << ")";
       } break;
       case ExprType::CASE: {
-        s << "case " << e->to_string(indent, indents) << " of {" << endl;
+        s << "case " << e->to_string(indent, indents) << " of";
+        if (gadt != nullptr) {
+          s << ":" << ::to_string(gadt);
+        }
+        s << " {" << endl;
         for (auto &pes_ : pes) {
           auto pes = pes_.second;
           for (size_t i = 0; i < indent + 1; i++) {
