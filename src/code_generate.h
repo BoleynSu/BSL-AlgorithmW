@@ -152,8 +152,8 @@ struct CodeGenerator {
         auto &nout = *fns.back();
         nout << BSL_RT_VAR_T << " " << fun(fn_idx) << "(" << BSL_RT_VAR_T << " "
              << var(expr->x) << ", " << BSL_RT_VAR_T << " " << BSL_ENV
-             << "[]) {" << endl;
-        nout << " return ";
+             << "[]) {" << endl
+             << " return ";
         codegen(nout, expr->e, env_);
         nout << ";" << endl << "}" << endl;
 
@@ -188,8 +188,8 @@ struct CodeGenerator {
         for (auto &e : env_) {
           nout << ", " << BSL_RT_VAR_T << " " << var(e.first);
         }
-        nout << ") {" << endl;
-        nout << "  " << BSL_RT_VAR_T << " " << BSL_ENV << "[" << env_.size()
+        nout << ") {" << endl
+             << "  " << BSL_RT_VAR_T << " " << BSL_ENV << "[" << env_.size()
              << "];" << endl;
         for (auto &e : env_) {
           nout << "  " << BSL_ENV << "[" << e.second << "] = " << var(e.first)
@@ -230,8 +230,8 @@ struct CodeGenerator {
             first = false;
           }
         }
-        nout << ") {" << endl;
-        nout << "  " << BSL_RT_VAR_T << " " << BSL_ENV << "[" << env_.size()
+        nout << ") {" << endl
+             << "  " << BSL_RT_VAR_T << " " << BSL_ENV << "[" << env_.size()
              << "];" << endl;
         for (auto &e : env_) {
           nout << "  " << BSL_ENV << "[" << e.second << "] = " << var(e.first)
@@ -246,8 +246,8 @@ struct CodeGenerator {
               nout << "  " << var(expr->xes[i].first, env_) << " = "
                    << BSL_RT_MALLOC << "(sizeof(" << BSL_RT_FUN_T << ") + "
                    << expr->xes[i].second->fv.size() << " * sizeof("
-                   << BSL_RT_VAR_T << "));" << endl;
-              nnout << "  ";
+                   << BSL_RT_VAR_T << "));" << endl
+                   << "  ";
               codegen(nnout, expr->xes[i].second, env_, expr->xes[i].first);
               nnout << ";" << endl;
             } else {
@@ -268,8 +268,7 @@ struct CodeGenerator {
             exit(EXIT_FAILURE);
           }
         }
-        nout << nnout.str();
-        nout << "  return ";
+        nout << nnout.str() << "  return ";
         codegen(nout, expr->e, env_);
         nout << ";" << endl << "}" << endl;
 
@@ -314,8 +313,8 @@ struct CodeGenerator {
         for (auto &e : env_) {
           nout << ", " << BSL_RT_VAR_T << " " << var(e.first);
         }
-        nout << ") {" << endl;
-        nout << "  " << BSL_RT_VAR_T << " " << BSL_ENV << "[" << env_.size()
+        nout << ") {" << endl
+             << "  " << BSL_RT_VAR_T << " " << BSL_ENV << "[" << env_.size()
              << "];" << endl;
         for (auto &e : env_) {
           nout << "  " << BSL_ENV << "[" << e.second << "] = " << var(e.first)
@@ -339,8 +338,7 @@ struct CodeGenerator {
             }
             nout << "    return ";
             codegen(nout, pes.second, env_);
-            nout << ";" << endl;
-            nout << "  }" << endl;
+            nout << ";" << endl << "  }" << endl;
           }
         }
 
