@@ -154,6 +154,13 @@ shared_ptr<Mono> get_mono(shared_ptr<Poly> t) {
   return t->tau;
 }
 
+shared_ptr<Mono> get_mono(shared_ptr<Rank2Poly> t) {
+  while (t->is_forall) {
+    t = t->sigma;
+  }
+  return t->mono;
+}
+
 shared_ptr<Mono> inst(shared_ptr<Mono> tau,
                       map<shared_ptr<Mono>, shared_ptr<Mono>> &m) {
   tau = find(tau);

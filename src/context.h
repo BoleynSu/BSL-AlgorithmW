@@ -49,7 +49,7 @@ struct Context : map<string, vector<pair<bool, shared_ptr<void>>>> {
     (*this)[key].push_back(make_pair(true, static_pointer_cast<void>(value)));
   }
   void set_rank2poly(const string& key, shared_ptr<Rank2Poly> value) {
-    (*this)[key].push_back(make_pair(true, static_pointer_cast<void>(value)));
+    (*this)[key].push_back(make_pair(false, static_pointer_cast<void>(value)));
   }
   void unset(const string& key) {
     auto& v = (*this)[key];

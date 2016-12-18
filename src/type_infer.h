@@ -184,6 +184,8 @@ void infer(shared_ptr<Expr> expr, shared_ptr<Context> context,
   switch (expr->T) {
     case ExprType::VAR:
       if (context->has_rank2poly(expr->x)) {
+        cerr << "type error: " << expr->x << " is of rank-2 type" << endl;
+        exit(EXIT_FAILURE);
       } else if (context->has_poly(expr->x)) {
         auto t = context->get_poly(expr->x);
         expr->type = inst(t);
@@ -194,11 +196,12 @@ void infer(shared_ptr<Expr> expr, shared_ptr<Context> context,
       break;
     case ExprType::APP: {
       if (expr->e1->T == ExprType::VAR && context->has_rank2poly(expr->e1->x)) {
-        infer(expr->e1, context, dnc);
+        //        infer(expr->e1, context, dnc);
         infer(expr->e2, context, dnc);
+        expr->type = new_forall_var();
         auto t = rank2inst(context->get_rank2poly(expr->e1->x));
         set<shared_ptr<Mono>> st;
-        unify(t.second, expr->e->type, &cerr);
+        unify(t.second, expr->type, &cerr);
         unify(inst(t.first), expr->e2->type, &cerr, &st);
       } else {
         infer(expr->e1, context, dnc);
@@ -238,14 +241,11 @@ void infer(shared_ptr<Expr> expr, shared_ptr<Context> context,
       break;
     }
     case ExprType::REC: {
-      vector<shared_ptr<Mono>> taus;
       for (size_t i = 0; i < expr->xes.size(); i++) {
         if (expr->xes[i].second->sig != nullptr) {
-          taus.push_back(nullptr);
           context->set_poly(expr->xes[i].first, expr->xes[i].second->sig);
         } else {
-          taus.push_back(new_forall_var());
-          context->set_poly(expr->xes[i].first, new_poly(taus[i]));
+          context->set_poly(expr->xes[i].first, new_poly(new_forall_var()));
         }
       }
       for (size_t i = 0; i < expr->xes.size(); i++) {
@@ -276,8 +276,8 @@ void infer(shared_ptr<Expr> expr, shared_ptr<Context> context,
           auto tau = rank2inst(
               (*dnc.second)[pes_.first]->rank2sig,
               (*dnc.first)[(*dnc.second)[pes_.first]->data_name]->exists);
-          assert(pes.first.size() == 1);
           context->set_poly(pes.first.front(), tau.first);
+          // TODO FIXME
           infer(pes.second, context, dnc);
           context->unset(pes.first.front());
           auto fn = new_const_var("->");
