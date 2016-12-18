@@ -580,11 +580,11 @@ struct CodeGenerator {
           if (c->rank2sig != nullptr) {
             //            cerr << "//" << c->name << " : " <<
             //            to_string(c->rank2sig) << endl;
-            //            context->set_rank2poly(c->name, c->rank2sig);
+            context->set_rank2poly(c->name, c->rank2sig);
           } else {
             //            cerr << "//" << c->name << " : " << to_string(c->sig)
             //            << endl;
-            //            context->set_poly(c->name, c->sig);
+            context->set_poly(c->name, c->sig);
           }
           e->e2 = expr;
           expr = e;
