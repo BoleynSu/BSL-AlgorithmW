@@ -6,29 +6,27 @@
 #include <string>
 #include <vector>
 
-struct Poly_;
-
-struct Mono_ {
-  shared_ptr<Mono_> par;
+struct Mono {
+  shared_ptr<Mono> par;
   bool is_const;
   string D;
-  vector<shared_ptr<Poly_>> tau;
+  vector<shared_ptr<Mono>> tau;
   bool is_forall;
   size_t level;
 };
 
-struct Poly_ {
+struct Poly {
   bool is_mono;
-  shared_ptr<Mono_> tau;
-  shared_ptr<Mono_> alpha;
-  shared_ptr<Poly_> sigma;
+  shared_ptr<Mono> tau;
+  shared_ptr<Mono> alpha;
+  shared_ptr<Poly> sigma;
 };
 
-bool is_c(shared_ptr<Mono_> x) { return x->is_const; }
-bool is_f(shared_ptr<Mono_> x) { return (!x->is_const) && x->is_forall; }
-bool is_e(shared_ptr<Mono_> x) { return (!x->is_const) && (!x->is_forall); }
+bool is_c(shared_ptr<Mono> x) { return x->is_const; }
+bool is_f(shared_ptr<Mono> x) { return (!x->is_const) && x->is_forall; }
+bool is_e(shared_ptr<Mono> x) { return (!x->is_const) && (!x->is_forall); }
 
-shared_ptr<Mono_> find(shared_ptr<Mono_> x) {
+shared_ptr<Mono> find(shared_ptr<Mono> x) {
   if (x->par != nullptr) {
     x->par = find(x->par);
     return x->par;
@@ -37,9 +35,9 @@ shared_ptr<Mono_> find(shared_ptr<Mono_> x) {
   }
 }
 
-string to_string(shared_ptr<Poly_>);
+string to_string(shared_ptr<Poly>);
 
-string to_string(shared_ptr<Mono_> tau) {
+string to_string(shared_ptr<Mono> tau) {
   tau = find(tau);
   if (is_c(tau)) {
     if (tau->D == "->") {
@@ -65,7 +63,7 @@ string to_string(shared_ptr<Mono_> tau) {
   }
 }
 
-string to_string(shared_ptr<Poly_> sigma) {
+string to_string(shared_ptr<Poly> sigma) {
   if (sigma->is_mono) {
     return to_string(sigma->tau);
   } else {
@@ -76,101 +74,98 @@ string to_string(shared_ptr<Poly_> sigma) {
   }
 }
 
-shared_ptr<Mono_> new_const_var(const string &D) {
-  auto t = make_shared<Mono_>();
+shared_ptr<Mono> new_const_var(const string &D) {
+  auto t = make_shared<Mono>();
   t->is_const = true;
   t->D = D;
   t->level = 0;
   return t;
 }
 
-shared_ptr<Mono_> new_forall_var() {
-  auto t = make_shared<Mono_>();
+shared_ptr<Mono> new_forall_var() {
+  auto t = make_shared<Mono>();
   t->is_const = false;
   t->is_forall = true;
   t->level = 0;
   return t;
 }
 
-shared_ptr<Mono_> new_exists_var() {
-  auto t = make_shared<Mono_>();
+shared_ptr<Mono> new_exists_var() {
+  auto t = make_shared<Mono>();
   t->is_const = false;
   t->is_forall = false;
   t->level = 0;
   return t;
 }
 
-shared_ptr<Poly_> new_poly(shared_ptr<Mono_> m) {
-  auto p = make_shared<Poly_>();
+shared_ptr<Poly> new_poly(shared_ptr<Mono> m) {
+  auto p = make_shared<Poly>();
   p->is_mono = true;
   p->tau = m;
   return p;
 }
 
-shared_ptr<Poly_> new_poly(shared_ptr<Mono_> alpha, shared_ptr<Poly_> sigma) {
-  auto p = make_shared<Poly_>();
+shared_ptr<Poly> new_poly(shared_ptr<Mono> alpha, shared_ptr<Poly> sigma) {
+  auto p = make_shared<Poly>();
   p->is_mono = false;
   p->alpha = alpha;
   p->sigma = sigma;
   return p;
 }
 
-shared_ptr<Mono_> get_mono(shared_ptr<Poly_> t) {
+shared_ptr<Mono> get_mono(shared_ptr<Poly> t) {
   while (!t->is_mono) {
     t = t->sigma;
   }
   return t->tau;
 }
 
-shared_ptr<Mono_> inst(shared_ptr<Mono_>,
-                       const map<shared_ptr<Mono_>, shared_ptr<Mono_>> &);
-
-shared_ptr<Poly_> inst(shared_ptr<Poly_> sigma,
-                       const map<shared_ptr<Mono_>, shared_ptr<Mono_>> &m) {
-  auto s = make_shared<Poly_>(*sigma);
-  if (sigma->is_mono) {
-    s->tau = inst(sigma->tau, m);
-    return s;
-  } else {
-    s->sigma = inst(sigma->sigma, m);
-    return s;
-  }
-}
-
-shared_ptr<Mono_> inst(shared_ptr<Mono_> tau,
-                       const map<shared_ptr<Mono_>, shared_ptr<Mono_>> &m) {
+shared_ptr<Mono> inst(shared_ptr<Mono> tau,
+                      map<shared_ptr<Mono>, shared_ptr<Mono>> &m) {
   tau = find(tau);
   if (is_c(tau)) {
-    auto t = make_shared<Mono_>(*tau);
+    auto t = make_shared<Mono>(*tau);
     for (size_t i = 0; i < tau->tau.size(); i++) {
       t->tau[i] = inst(tau->tau[i], m);
     }
     return t;
   } else {
     if (m.count(tau)) {
-      return m.find(tau)->second;
+      return m[tau];
     } else {
       return tau;
     }
   }
 }
 
-shared_ptr<Mono_> inst(shared_ptr<Poly_> sigma, size_t l = 0) {
-  map<shared_ptr<Mono_>, shared_ptr<Mono_>> m;
-  while (!sigma->is_mono) {
-    if (!m.count(sigma->alpha)) {
-      assert(is_f(sigma->alpha));
-      m[sigma->alpha] = new_forall_var();
-      m[sigma->alpha]->level = l;
+shared_ptr<Mono> inst(shared_ptr<Poly> sigma,
+                      map<shared_ptr<Mono>, shared_ptr<Mono>> &m) {
+  if (sigma->is_mono) {
+    return inst(sigma->tau, m);
+  } else {
+    if (!m.count(find(sigma->alpha))) {
+      m[find(sigma->alpha)] = new_forall_var();
     }
-    sigma = sigma->sigma;
+    return inst(sigma->sigma, m);
   }
-  return inst(sigma->tau, m);
 }
 
-void ftv(set<shared_ptr<Mono_>> &, shared_ptr<Poly_>);
+shared_ptr<Mono> inst(shared_ptr<Poly> sigma) {
+  map<shared_ptr<Mono>, shared_ptr<Mono>> m;
+  return inst(sigma, m);
+}
+shared_ptr<Mono> inst(shared_ptr<Poly> sigma,
+                      vector<shared_ptr<Mono>> &exists) {
+  map<shared_ptr<Mono>, shared_ptr<Mono>> m;
+  for (auto e : exists) {
+    m[e] = new_exists_var();
+  }
+  return inst(sigma, m);
+}
 
-void ftv(set<shared_ptr<Mono_>> &f, shared_ptr<Mono_> tau) {
+void ftv(set<shared_ptr<Mono>> &, shared_ptr<Poly>);
+
+void ftv(set<shared_ptr<Mono>> &f, shared_ptr<Mono> tau) {
   tau = find(tau);
   if (is_c(tau)) {
     for (size_t i = 0; i < tau->tau.size(); i++) {
@@ -181,7 +176,7 @@ void ftv(set<shared_ptr<Mono_>> &f, shared_ptr<Mono_> tau) {
   }
 }
 
-void ftv(set<shared_ptr<Mono_>> &f, shared_ptr<Poly_> sigma) {
+void ftv(set<shared_ptr<Mono>> &f, shared_ptr<Poly> sigma) {
   if (sigma->is_mono) {
     ftv(f, sigma->tau);
   } else {
@@ -190,21 +185,21 @@ void ftv(set<shared_ptr<Mono_>> &f, shared_ptr<Poly_> sigma) {
   }
 }
 
-shared_ptr<Poly_> gen(shared_ptr<map<string, shared_ptr<Poly_>>> context,
-                      shared_ptr<Mono_> tau) {
+shared_ptr<Poly> gen(shared_ptr<map<string, shared_ptr<Poly>>> context,
+                     shared_ptr<Mono> tau) {
   tau = find(tau);
-  set<shared_ptr<Mono_>> f;
+  set<shared_ptr<Mono>> f;
   for (auto &c : *context) {
-    set<shared_ptr<Mono_>> fi;
+    set<shared_ptr<Mono>> fi;
     ftv(fi, c.second);
     f.insert(fi.begin(), fi.end());
   }
-  set<shared_ptr<Mono_>> fp;
+  set<shared_ptr<Mono>> fp;
   ftv(fp, tau);
   for (auto i : f) {
     fp.erase(i);
   }
-  map<shared_ptr<Mono_>, shared_ptr<Mono_>> m;
+  map<shared_ptr<Mono>, shared_ptr<Mono>> m;
   for (auto f : fp) {
     if (is_f(f)) {
       m[f] = new_forall_var();

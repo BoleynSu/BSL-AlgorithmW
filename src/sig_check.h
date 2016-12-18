@@ -14,34 +14,20 @@
 #include "data.h"
 #include "type.h"
 
-void check(shared_ptr<Constructor> c, shared_ptr<Mono_> p,
-           set<shared_ptr<Mono_>> &st, bool m, bool r,
+void check(shared_ptr<Constructor> c, shared_ptr<Mono> p,
+           set<shared_ptr<Mono>> &st, bool m, bool r,
            shared_ptr<map<string, shared_ptr<Data>>> data) {
   if (is_c(p)) {
     if (p->D == "->") {
       assert(p->tau.size() == 2);
-      {
-        auto tp = p->tau[0];
-        while (!tp->is_mono) {
-          st.insert(tp->alpha);
-          tp = tp->sigma;
-        }
-        check(c, tp->tau, st, m && false, r, data);
-      }
-      {
-        auto tp = p->tau[1];
-        while (!tp->is_mono) {
-          st.insert(tp->alpha);
-          tp = tp->sigma;
-        }
-        check(c, tp->tau, st, m && true, r, data);
-      }
+      check(c, p->tau[0], st, m && false, r, data);
+      check(c, p->tau[1], st, m && true, r, data);
     } else {
       if (data->count(p->D)) {
         if (m) {
           if (p->D != c->data_name) {
             cerr << "type error: in constructor " << c->name << ":"
-                 << to_string(c->type) << endl
+                 << to_string(c->sig) << endl
                  << "return type is `" << p->D << "` instead of `"
                  << c->data_name << "`" << endl;
             exit(EXIT_FAILURE);
@@ -49,29 +35,23 @@ void check(shared_ptr<Constructor> c, shared_ptr<Mono_> p,
         }
         if (p->tau.size() != (*data)[p->D]->arg) {
           cerr << "type error: in constructor " << c->name << ":"
-               << to_string(c->type) << endl
+               << to_string(c->sig) << endl
                << "type `" << p->D << "` expects " << (*data)[p->D]->arg
                << " arguments, but gets " << p->tau.size() << endl;
           exit(EXIT_FAILURE);
         }
         for (size_t i = 0; i < p->tau.size(); i++) {
-          auto tp = p->tau[i];
-          while (!tp->is_mono) {
-            st.insert(tp->alpha);
-            tp = tp->sigma;
-          }
-          check(c, tp->tau, st, false, m || r, data);
+          check(c, p->tau[i], st, false, m || r, data);
         }
         if (m) {
           for (auto t : st) {
-            if (is_f(t)) {
-              (*data)[c->data_name]->exists.push_back(t);
-            }
+            assert(is_f(t));
+            (*data)[c->data_name]->exists.push_back(t);
           }
         }
       } else {
         cerr << "type error: in constructor " << c->name << ":"
-             << to_string(c->type) << endl
+             << to_string(c->sig) << endl
              << "`" << p->D << "` is not a type" << endl;
         exit(EXIT_FAILURE);
       }
@@ -79,7 +59,7 @@ void check(shared_ptr<Constructor> c, shared_ptr<Mono_> p,
   } else {
     if (m) {
       cerr << "type error: in constructor " << c->name << ":"
-           << to_string(c->type) << endl
+           << to_string(c->sig) << endl
            << "return type is a type variable instead of " << c->data_name
            << endl;
       exit(EXIT_FAILURE);
@@ -97,8 +77,8 @@ void check(shared_ptr<map<string, shared_ptr<Data>>> data, shared_ptr<Expr> e) {
 void check(shared_ptr<map<string, shared_ptr<Data>>> data,
            shared_ptr<map<string, shared_ptr<Constructor>>> cons) {
   for (auto &c : *cons) {
-    shared_ptr<Poly_> p = c.second->type;
-    set<shared_ptr<Mono_>> st;
+    shared_ptr<Poly> p = c.second->sig;
+    set<shared_ptr<Mono>> st;
     while (!p->is_mono) {
       st.insert(p->alpha);
       p = p->sigma;

@@ -22,7 +22,8 @@ struct Expr {
   vector<pair<string, shared_ptr<Expr>>> xes;
   map<string, pair<vector<string>, shared_ptr<Expr>>> pes;
   string ffi;
-  shared_ptr<Poly_> type, sig, gadt;
+  shared_ptr<Mono> type;
+  shared_ptr<Poly> sig, gadt;
   Position pos;
   set<string> fv;
 

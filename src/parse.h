@@ -60,18 +60,53 @@ struct Parser {
     }
   }
 
-  shared_ptr<Poly_> parse_sig(map<string, shared_ptr<Mono_>> &m) {
-    auto mo = parse_sig_(m);
+  shared_ptr<Mono> parse_monotype(map<string, shared_ptr<Mono>> &m) {
+    auto mo = parse_monotype_(m);
     if (accept(TokenType::RIGHTARROW)) {
       auto t = new_const_var("->");
       t->tau.push_back(mo);
-      t->tau.push_back(parse_sig(m));
-      mo = new_poly(t);
+      t->tau.push_back(parse_monotype(m));
+      mo = t;
     }
     return mo;
   }
-  shared_ptr<Poly_> parse_sig_(map<string, shared_ptr<Mono_>> &m) {
-    shared_ptr<Poly_> mo;
+
+  shared_ptr<Mono> parse_monotype_(map<string, shared_ptr<Mono>> &m) {
+    shared_ptr<Mono> mo;
+    if (accept(TokenType::IDENTIFIER)) {
+      if (m.count(t.data)) {
+        mo = m[t.data];
+      } else {
+        mo = new_const_var(t.data);
+      }
+    } else {
+      expect(TokenType::LEFT_PARENTHESIS);
+      mo = parse_monotype(m);
+      expect(TokenType::RIGHT_PARENTHESIS);
+    }
+    if (mo->is_const && mo->D != "->") {
+      auto t1 = mo;
+      while (match(TokenType::IDENTIFIER) ||
+             match(TokenType::LEFT_PARENTHESIS)) {
+        if (accept(TokenType::IDENTIFIER)) {
+          if (m.count(t.data)) {
+            mo = m[t.data];
+          } else {
+            mo = new_const_var(t.data);
+          }
+        } else {
+          expect(TokenType::LEFT_PARENTHESIS);
+          mo = parse_monotype(m);
+          expect(TokenType::RIGHT_PARENTHESIS);
+        }
+        t1->tau.push_back(mo);
+      }
+      mo = t1;
+    }
+    return mo;
+  }
+
+  shared_ptr<Poly> parse_polytype(map<string, shared_ptr<Mono>> &m) {
     if (accept(TokenType::FORALL)) {
       expect(TokenType::IDENTIFIER);
       if (m.count(t.data)) {
@@ -84,45 +119,15 @@ struct Parser {
              << "`" << data << "`" << endl;
         exit(EXIT_FAILURE);
       }
-      auto alpha = new_forall_var();
-      m[t.data] = alpha;
+      auto alpha = m[t.data] = new_forall_var();
       expect(TokenType::DOT);
-      mo = new_poly(alpha, parse_sig(m));
-    } else if (accept(TokenType::IDENTIFIER)) {
-      if (m.count(t.data)) {
-        mo = new_poly(m[t.data]);
-      } else {
-        mo = new_poly(new_const_var(t.data));
-      }
+      return new_poly(alpha, parse_polytype(m));
     } else {
-      expect(TokenType::LEFT_PARENTHESIS);
-      mo = parse_sig(m);
-      expect(TokenType::RIGHT_PARENTHESIS);
+      return new_poly(parse_monotype(m));
     }
-
-    if (mo->is_mono && is_c(get_mono(mo)) && get_mono(mo)->D != "->") {
-      auto t1 = get_mono(mo);
-      while (match(TokenType::IDENTIFIER) ||
-             match(TokenType::LEFT_PARENTHESIS)) {
-        if (accept(TokenType::IDENTIFIER)) {
-          if (m.count(t.data)) {
-            mo = new_poly(m[t.data]);
-          } else {
-            mo = new_poly(new_const_var(t.data));
-          }
-        } else {
-          expect(TokenType::LEFT_PARENTHESIS);
-          mo = parse_sig(m);
-          expect(TokenType::RIGHT_PARENTHESIS);
-        }
-        t1->tau.push_back(mo);
-      }
-      mo = new_poly(t1);
-    }
-    return mo;
   }
 
-  shared_ptr<Constructor> parse_constructor(map<string, shared_ptr<Mono_>> &m) {
+  shared_ptr<Constructor> parse_constructor(map<string, shared_ptr<Mono>> &m) {
     auto c = make_shared<Constructor>();
     expect(TokenType::IDENTIFIER);
     if (constructor_decl->count(t.data)) {
@@ -136,13 +141,13 @@ struct Parser {
     }
     c->name = t.data;
     expect(TokenType::COLON);
-    c->type = parse_sig(m);
+    c->sig = parse_polytype(m);
     (*constructor_decl)[c->name] = c;
-    auto tm = get_mono(c->type);
+    auto tm = get_mono(c->sig);
     c->arg = 0;
     while (is_c(tm) && tm->D == "->") {
       c->arg++;
-      tm = get_mono(tm->tau[1]);
+      tm = tm->tau[1];
     }
     return c;
   }
@@ -179,7 +184,7 @@ struct Parser {
     }
     expect(TokenType::LEFT_BRACE);
     while (!accept(TokenType::RIGHT_BRACE)) {
-      map<string, shared_ptr<Mono_>> m;
+      map<string, shared_ptr<Mono>> m;
       d->constructors.push_back(parse_constructor(m));
       d->constructors.back()->data_name = d->name;
       if (!match(TokenType::RIGHT_BRACE)) {
@@ -199,13 +204,13 @@ struct Parser {
       expect(TokenType::RIGHTARROW);
       expr->e = parse_expr();
     } else if (accept(TokenType::LET)) {
-      shared_ptr<Poly_> s;
+      shared_ptr<Poly> s;
       expr->T = ExprType::LET;
       expect(TokenType::IDENTIFIER);
       expr->x = t.data;
       if (accept(TokenType::COLON)) {
-        map<string, shared_ptr<Mono_>> m;
-        s = parse_sig(m);
+        map<string, shared_ptr<Mono>> m;
+        s = parse_polytype(m);
       }
       expect(TokenType::EQUAL);
       expr->e1 = parse_expr();
@@ -219,7 +224,7 @@ struct Parser {
       expr->T = ExprType::REC;
       set<string> st;
       do {
-        shared_ptr<Poly_> s;
+        shared_ptr<Poly> s;
         expect(TokenType::IDENTIFIER);
         if (st.count(t.data)) {
           string data = t.data;
@@ -233,8 +238,8 @@ struct Parser {
         st.insert(t.data);
         expr->xes.push_back(make_pair(t.data, nullptr));
         if (accept(TokenType::COLON)) {
-          map<string, shared_ptr<Mono_>> m;
-          s = parse_sig(m);
+          map<string, shared_ptr<Mono>> m;
+          s = parse_polytype(m);
         }
         expect(TokenType::EQUAL);
         expr->xes.back().second = parse_expr();
@@ -286,10 +291,10 @@ struct Parser {
       expr->T = ExprType::CASE;
       expr->e = parse_expr();
       expect(TokenType::OF);
-      shared_ptr<Poly_> g;
+      shared_ptr<Poly> g;
       if (accept(TokenType::COLON)) {
-        map<string, shared_ptr<Mono_>> m;
-        g = parse_sig(m);
+        map<string, shared_ptr<Mono>> m;
+        g = parse_polytype(m);
       }
       expr->gadt = g;
       expect(TokenType::LEFT_BRACE);

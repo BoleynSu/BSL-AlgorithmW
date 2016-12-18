@@ -240,7 +240,7 @@ struct CodeGenerator {
         }
         stringstream nnout;
         for (size_t i = 0; i < expr->xes.size(); i++) {
-          auto t = find(get_mono(expr->xes[i].second->type));
+          auto t = find(expr->xes[i].second->type);
           if (is_c(t) && t->D == "->" &&
               expr->xes[i].second->T == ExprType::ABS) {
             nout << "  " << var(expr->xes[i].first, env_) << " = "
@@ -318,9 +318,9 @@ struct CodeGenerator {
         }
         assert(expr->pes.size() >= 1);
         auto t = get_mono(expr->gadt);
-        assert(is_c(t) && t->D == "->" && get_mono(t->tau[0])->is_const &&
-               data->count(get_mono(t->tau[0])->D));
-        auto da = (*data)[get_mono(t->tau[0])->D];
+        assert(is_c(t) && t->D == "->" && t->tau[0]->is_const &&
+               data->count(t->tau[0]->D));
+        auto da = (*data)[t->tau[0]->D];
         if (da->to_ptr != numeric_limits<size_t>::max()) {
           assert(da->constructors.size());
           if (expr->pes.count(da->constructors[da->to_ptr]->name)) {
@@ -567,14 +567,14 @@ struct CodeGenerator {
           cur->T = ExprType::FFI;
           cur->ffi = s.str();
           e->e1 = lam;
-          e->e1->sig = c->type;
+          e->e1->sig = c->sig;
           e->e2 = expr;
           expr = e;
         }
       }
     }
 
-    infer(expr, make_shared<map<string, shared_ptr<Mono_>>>(), prog.first);
+    infer(expr, make_shared<map<string, shared_ptr<Poly>>>(), prog.first);
 
     stringstream main;
     codegen(main, optimize(expr), map<string, size_t>());

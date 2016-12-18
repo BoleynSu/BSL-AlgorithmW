@@ -5,22 +5,22 @@
 #include <string>
 #include <vector>
 
-struct Mono_;
-struct Poly_;
+struct Mono;
+struct Poly;
 
 using namespace std;
 
 struct Constructor {
   string name;
   size_t arg;
-  shared_ptr<Poly_> sig, type;
+  shared_ptr<Poly> sig;
   string data_name;
 };
 
 struct Data {
   string name;
   size_t arg;
-  vector<shared_ptr<Mono_>> exists;
+  vector<shared_ptr<Mono>> exists;
   vector<shared_ptr<Constructor>> constructors;
   size_t maxarg;
   size_t to_ptr;
