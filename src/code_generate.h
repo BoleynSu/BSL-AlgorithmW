@@ -188,15 +188,8 @@ struct CodeGenerator {
         for (auto &e : env_) {
           nout << ", " << BSL_RT_VAR_T << " " << var(e.first);
         }
-        nout << ") {" << endl
-             << "  " << BSL_RT_VAR_T << " " << BSL_ENV << "[" << env_.size()
-             << "];" << endl;
-        for (auto &e : env_) {
-          nout << "  " << BSL_ENV << "[" << e.second << "] = " << var(e.first)
-               << ";" << endl;
-        }
-        nout << "  return ";
-        codegen(nout, expr->e2, env_);
+        nout << ") {" << endl << "  return ";
+        codegen(nout, expr->e2, map<string, size_t>());
         nout << ";" << endl << "}" << endl;
 
         out << fun(fn_idx) << "(";
@@ -223,32 +216,27 @@ struct CodeGenerator {
         fns.push_back(make_shared<stringstream>());
         auto &nout = *fns.back();
         nout << BSL_RT_VAR_T << " " << fun(fn_idx) << "(";
-        bool first = true;
         {
+          bool first = true;
           for (auto &e : env_) {
             nout << (first ? "" : ", ") << BSL_RT_VAR_T << " " << var(e.first);
             first = false;
           }
         }
-        nout << ") {" << endl
-             << "  " << BSL_RT_VAR_T << " " << BSL_ENV << "[" << env_.size()
-             << "];" << endl;
-        for (auto &e : env_) {
-          nout << "  " << BSL_ENV << "[" << e.second << "] = " << var(e.first)
-               << ";" << endl;
-        }
+        nout << ") {" << endl;
         stringstream nnout;
         for (size_t i = 0; i < expr->xes.size(); i++) {
           auto t = find(expr->xes[i].second->type);
           if (is_c(t) && t->D == "->" &&
               expr->xes[i].second->T == ExprType::ABS) {
             if (env_.count(expr->xes[i].first)) {
-              nout << "  " << var(expr->xes[i].first, env_) << " = "
-                   << BSL_RT_MALLOC << "(sizeof(" << BSL_RT_FUN_T << ") + "
+              nout << "  " << var(expr->xes[i].first) << " = " << BSL_RT_MALLOC
+                   << "(sizeof(" << BSL_RT_FUN_T << ") + "
                    << expr->xes[i].second->fv.size() << " * sizeof("
                    << BSL_RT_VAR_T << "));" << endl
                    << "  ";
-              codegen(nnout, expr->xes[i].second, env_, expr->xes[i].first);
+              codegen(nnout, expr->xes[i].second, map<string, size_t>(),
+                      expr->xes[i].first);
               nnout << ";" << endl;
             } else {
               string data = expr->to_string(0, "  ");
@@ -269,7 +257,7 @@ struct CodeGenerator {
           }
         }
         nout << nnout.str() << "  return ";
-        codegen(nout, expr->e, env_);
+        codegen(nout, expr->e, map<string, size_t>());
         nout << ";" << endl << "}" << endl;
 
         out << fun(fn_idx) << "(";
@@ -313,13 +301,7 @@ struct CodeGenerator {
         for (auto &e : env_) {
           nout << ", " << BSL_RT_VAR_T << " " << var(e.first);
         }
-        nout << ") {" << endl
-             << "  " << BSL_RT_VAR_T << " " << BSL_ENV << "[" << env_.size()
-             << "];" << endl;
-        for (auto &e : env_) {
-          nout << "  " << BSL_ENV << "[" << e.second << "] = " << var(e.first)
-               << ";" << endl;
-        }
+        nout << ") {" << endl;
         assert(expr->pes.size() >= 1);
         auto t = get_mono(expr->gadt);
         assert(is_c(t) && t->D == "->" && t->tau[0]->is_const &&
@@ -337,7 +319,7 @@ struct CodeGenerator {
                    << arg(i) << ";" << endl;
             }
             nout << "    return ";
-            codegen(nout, pes.second, env_);
+            codegen(nout, pes.second, map<string, size_t>());
             nout << ";" << endl << "  }" << endl;
           }
         }
@@ -364,7 +346,7 @@ struct CodeGenerator {
                      << arg(i) << ";" << endl;
               }
               nout << "      return ";
-              codegen(nout, pes.second, env_);
+              codegen(nout, pes.second, map<string, size_t>());
               nout << ";" << endl << "    }" << endl;
             }
           }
@@ -376,7 +358,7 @@ struct CodeGenerator {
               if (i != da->to_ptr && expr->pes.count(c->name)) {
                 auto &pes = expr->pes.find(c->name)->second;
                 nout << "  return ";
-                codegen(nout, pes.second, env_);
+                codegen(nout, pes.second, map<string, size_t>());
                 nout << ";" << endl;
               }
             }
@@ -396,13 +378,12 @@ struct CodeGenerator {
                   }
                 }
                 nout << "  return ";
-                codegen(nout, pes.second, env_);
+                codegen(nout, pes.second, map<string, size_t>());
                 nout << ";" << endl;
               }
             }
           }
         }
-
         nout << "}" << endl;
 
         out << fun(fn_idx) << "(";
