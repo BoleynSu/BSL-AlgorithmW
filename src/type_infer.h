@@ -91,6 +91,7 @@ bool unify(shared_ptr<Mono> a, shared_ptr<Mono> b, ostream *cerr,
           if (cerr != nullptr) {
             (*cerr) << "type error: " << to_string(a) << " /= " << to_string(b)
                     << endl;
+            exit(EXIT_FAILURE);
           }
           return false;
         }
@@ -99,6 +100,7 @@ bool unify(shared_ptr<Mono> a, shared_ptr<Mono> b, ostream *cerr,
           if (cerr != nullptr) {
             (*cerr) << "type error: " << to_string(a) << " ~ " << to_string(b)
                     << endl;
+            exit(EXIT_FAILURE);
           }
           return false;
         } else {
@@ -106,6 +108,7 @@ bool unify(shared_ptr<Mono> a, shared_ptr<Mono> b, ostream *cerr,
             if (cerr != nullptr) {
               (*cerr) << "type error: " << to_string(a) << " !< "
                       << to_string(b) << endl;
+              exit(EXIT_FAILURE);
             }
             return false;
           } else {
@@ -117,6 +120,7 @@ bool unify(shared_ptr<Mono> a, shared_ptr<Mono> b, ostream *cerr,
         if (cerr != nullptr) {
           (*cerr) << "type error: " << to_string(a) << " /= " << to_string(b)
                   << endl;
+          exit(EXIT_FAILURE);
         }
         return false;
       }
@@ -126,17 +130,28 @@ bool unify(shared_ptr<Mono> a, shared_ptr<Mono> b, ostream *cerr,
           if (cerr != nullptr) {
             (*cerr) << "type error: " << to_string(a) << " ~ " << to_string(b)
                     << endl;
+            exit(EXIT_FAILURE);
           }
           return false;
         } else {
-          a->par = b;
-          return true;
+          if (st != nullptr) {
+            if (cerr != nullptr) {
+              (*cerr) << "type error: " << to_string(a) << " !< "
+                      << to_string(b) << endl;
+              exit(EXIT_FAILURE);
+            }
+            return false;
+          } else {
+            a->par = b;
+            return true;
+          }
         }
       } else if (is_f(b)) {
         if (st != nullptr && st->count(b) && a != b) {
           if (cerr != nullptr) {
             (*cerr) << "type error: " << to_string(a) << " !< " << to_string(b)
                     << endl;
+            exit(EXIT_FAILURE);
           }
           return false;
         } else {
@@ -144,14 +159,24 @@ bool unify(shared_ptr<Mono> a, shared_ptr<Mono> b, ostream *cerr,
           return true;
         }
       } else {
-        a->par = b;
-        return true;
+        if (st != nullptr) {
+          if (cerr != nullptr) {
+            (*cerr) << "type error: " << to_string(a) << " !< " << to_string(b)
+                    << endl;
+            exit(EXIT_FAILURE);
+          }
+          return false;
+        } else {
+          a->par = b;
+          return true;
+        }
       }
     } else {
       if (is_c(b)) {
         if (cerr != nullptr) {
           (*cerr) << "type error: " << to_string(a) << " /= " << to_string(b)
                   << endl;
+          exit(EXIT_FAILURE);
         }
         return false;
       } else if (is_f(b)) {
@@ -159,6 +184,7 @@ bool unify(shared_ptr<Mono> a, shared_ptr<Mono> b, ostream *cerr,
           if (cerr != nullptr) {
             (*cerr) << "type error: " << to_string(a) << " !< " << to_string(b)
                     << endl;
+            exit(EXIT_FAILURE);
           }
           return false;
         } else {
@@ -169,6 +195,7 @@ bool unify(shared_ptr<Mono> a, shared_ptr<Mono> b, ostream *cerr,
         if (cerr != nullptr) {
           (*cerr) << "type error: " << to_string(a) << " /= " << to_string(b)
                   << endl;
+          exit(EXIT_FAILURE);
         }
         return false;
       }
@@ -368,7 +395,7 @@ void infer(shared_ptr<Expr> expr, shared_ptr<Context> context,
           if (unify(fn, inst(expr->gadt), nullptr)) {
             if (fns.count(c->name)) {
               set<shared_ptr<Mono>> st;
-              unify(inst(fns[c->name]), fn, &cerr, &st);
+              unify(fn, inst(fns[c->name]), &cerr, &st);
             } else {
               cerr << "type error: non-exhaustive patterns `" << c->name << "`"
                    << endl;
@@ -395,7 +422,7 @@ void infer(shared_ptr<Expr> expr, shared_ptr<Context> context,
           if (unify(fn, inst(expr->gadt), nullptr)) {
             if (fns.count(c->name)) {
               set<shared_ptr<Mono>> st;
-              unify(inst(fns[c->name]), fn, &cerr, &st);
+              unify(fn, inst(fns[c->name]), &cerr, &st);
             } else {
               cerr << "type error: non-exhaustive patterns `" << c->name << "`"
                    << endl;
