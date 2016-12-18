@@ -276,15 +276,13 @@ struct Parser {
       if (accept(TokenType::COLON)) {
         map<string, shared_ptr<Mono>> m;
         s = parse_polytype(m);
+        check(data_decl, s);
       }
       expect(TokenType::EQUAL);
       expr->e1 = parse_expr();
       expr->e1->sig = s;
       expect(TokenType::IN);
       expr->e2 = parse_expr();
-      if (s != nullptr) {
-        check(data_decl, expr);
-      }
     } else if (accept(TokenType::REC)) {
       expr->T = ExprType::REC;
       set<string> st;
@@ -305,13 +303,11 @@ struct Parser {
         if (accept(TokenType::COLON)) {
           map<string, shared_ptr<Mono>> m;
           s = parse_polytype(m);
+          check(data_decl, s);
         }
         expect(TokenType::EQUAL);
         expr->xes.back().second = parse_expr();
         expr->xes.back().second->sig = s;
-        if (s != nullptr) {
-          check(data_decl, expr->xes.back().second);
-        }
       } while (accept(TokenType::AND));
       expect(TokenType::IN);
       expr->e = parse_expr();
@@ -360,6 +356,7 @@ struct Parser {
       if (accept(TokenType::COLON)) {
         map<string, shared_ptr<Mono>> m;
         g = parse_polytype(m);
+        check(data_decl, g);
       }
       expr->gadt = g;
       expect(TokenType::LEFT_BRACE);
@@ -423,11 +420,7 @@ struct Parser {
         }
       } while (!match(TokenType::RIGHT_BRACE));
       expect(TokenType::RIGHT_BRACE);
-      if (g != nullptr) {
-        check(data_decl, expr);
-      }
     } else if (accept(TokenType::FFI)) {
-      // TODO support typeof() FIXME ffi must have a sig
       expr->T = ExprType::FFI;
       stringstream s(t.data);
       s.get();
