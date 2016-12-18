@@ -198,8 +198,8 @@ void infer(shared_ptr<Expr> expr,
       } else {
         (*context)[expr->x] = gen(context, expr->e1->type);
       }
-      cerr << "//" << expr->x << " : " << to_string((*context)[expr->x])
-           << endl;
+      //      cerr << "//" << expr->x << " : " << to_string((*context)[expr->x])
+      //           << endl;
       infer(expr->e2, context, dnc);
       expr->type = expr->e2->type;
       if (contextx == nullptr) {
