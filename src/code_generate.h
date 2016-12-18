@@ -199,7 +199,6 @@ struct CodeGenerator {
         codegen(nout, expr->e2, env_);
         nout << ";" << endl << "}" << endl;
 
-        cons.insert(env_.size());
         out << fun(fn_idx) << "(";
         codegen(out, expr->e1, env);
         for (auto &fv : env_) {
@@ -245,9 +244,7 @@ struct CodeGenerator {
               expr->xes[i].second->T == ExprType::ABS) {
             if (env_.count(expr->xes[i].first)) {
               nout << "  " << var(expr->xes[i].first, env_) << " = "
-                   << BSL_RT_MALLOC << "(";
-              cons.insert(expr->xes[i].second->fv.size());
-              nout << "sizeof(" << BSL_RT_FUN_T << ") + "
+                   << BSL_RT_MALLOC << "(sizeof(" << BSL_RT_FUN_T << ") + "
                    << expr->xes[i].second->fv.size() << " * sizeof("
                    << BSL_RT_VAR_T << "));" << endl;
               nnout << "  ";
@@ -276,7 +273,6 @@ struct CodeGenerator {
         codegen(nout, expr->e, env_);
         nout << ";" << endl << "}" << endl;
 
-        cons.insert(env_.size());
         out << fun(fn_idx) << "(";
         {
           bool first = true;
@@ -411,7 +407,6 @@ struct CodeGenerator {
 
         nout << "}" << endl;
 
-        cons.insert(env_.size());
         out << fun(fn_idx) << "(";
         codegen(out, expr->e, env);
         for (auto &fv : env_) {
