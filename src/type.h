@@ -12,7 +12,6 @@ struct Mono {
   string D;
   vector<shared_ptr<Mono>> tau;
   bool is_forall;
-  size_t level;
 };
 
 struct Poly {
@@ -52,13 +51,7 @@ string to_string(shared_ptr<Mono> tau) {
     }
   } else {
     stringstream s;
-    for (size_t i = 0; i < tau->level; i++) {
-      s << "[";
-    }
     s << (is_f(tau) ? "f" : "e") << tau;
-    for (size_t i = 0; i < tau->level; i++) {
-      s << "]";
-    }
     return s.str();
   }
 }
@@ -78,7 +71,6 @@ shared_ptr<Mono> new_const_var(const string &D) {
   auto t = make_shared<Mono>();
   t->is_const = true;
   t->D = D;
-  t->level = 0;
   return t;
 }
 
@@ -86,7 +78,6 @@ shared_ptr<Mono> new_forall_var() {
   auto t = make_shared<Mono>();
   t->is_const = false;
   t->is_forall = true;
-  t->level = 0;
   return t;
 }
 
@@ -94,7 +85,6 @@ shared_ptr<Mono> new_exists_var() {
   auto t = make_shared<Mono>();
   t->is_const = false;
   t->is_forall = false;
-  t->level = 0;
   return t;
 }
 

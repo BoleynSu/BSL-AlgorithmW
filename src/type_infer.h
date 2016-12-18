@@ -276,7 +276,6 @@ void infer(shared_ptr<Expr> expr,
         vector<shared_ptr<Mono>> taus_1;
         vector<shared_ptr<Poly>> contextx_1;
         for (size_t i = 0; i < pes.first.size(); i++) {
-          // TODO FIXME
           taus_1.push_back(new_forall_var());
           auto t1 = new_const_var("->"), t2 = new_forall_var();
           t1->tau.push_back(taus_1[i]);
