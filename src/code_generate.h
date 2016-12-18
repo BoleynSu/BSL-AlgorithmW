@@ -1,11 +1,15 @@
 #ifndef SU_BOLEYN_BSL_CODE_GENERATE_H
 #define SU_BOLEYN_BSL_CODE_GENERATE_H
 
+#include <algorithm>
+#include <cassert>
 #include <cstdlib>
 #include <iostream>
 #include <limits>
 #include <map>
 #include <memory>
+#include <set>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -14,6 +18,7 @@
 #include "expr.h"
 #include "optimize.h"
 #include "parse.h"
+#include "sig_check.h"
 #include "type.h"
 #include "type_infer.h"
 
@@ -235,8 +240,8 @@ struct CodeGenerator {
         }
         stringstream nnout;
         for (size_t i = 0; i < expr->xes.size(); i++) {
-          auto t = find(expr->xes[i].second->type);
-          if (t->is_const && t->D == "->" &&
+          auto t = find(get_mono(expr->xes[i].second->type));
+          if (is_c(t) && t->D == "->" &&
               expr->xes[i].second->T == ExprType::ABS) {
             nout << "  " << var(expr->xes[i].first, env_) << " = "
                  << BSL_RT_MALLOC << "(";
@@ -313,7 +318,7 @@ struct CodeGenerator {
         }
         assert(expr->pes.size() >= 1);
         auto t = get_mono(expr->gadt);
-        assert(t->is_const && t->D == "->" && get_mono(t->tau[0])->is_const &&
+        assert(is_c(t) && t->D == "->" && get_mono(t->tau[0])->is_const &&
                data->count(get_mono(t->tau[0])->D));
         auto da = (*data)[get_mono(t->tau[0])->D];
         if (da->to_ptr != numeric_limits<size_t>::max()) {
@@ -569,7 +574,7 @@ struct CodeGenerator {
       }
     }
 
-    infer(expr, make_shared<map<string, shared_ptr<Poly_>>>(), prog.first);
+    infer(expr, make_shared<map<string, shared_ptr<Mono_>>>(), prog.first);
 
     stringstream main;
     codegen(main, optimize(expr), map<string, size_t>());

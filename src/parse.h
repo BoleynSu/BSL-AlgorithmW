@@ -2,6 +2,7 @@
 #define SU_BOLEYN_BSL_PARSE_H
 
 #include <cassert>
+#include <cassert>
 #include <cstdlib>
 #include <iostream>
 #include <map>
@@ -14,6 +15,7 @@
 #include "data.h"
 #include "expr.h"
 #include "lex.h"
+#include "sig_check.h"
 #include "type.h"
 
 using namespace std;
@@ -58,53 +60,18 @@ struct Parser {
     }
   }
 
-  shared_ptr<Mono_> parse_monotype(map<string, shared_ptr<Mono_>> &m) {
-    shared_ptr<Mono_> mo = parse_monotype_(m);
+  shared_ptr<Poly_> parse_sig(map<string, shared_ptr<Mono_>> &m) {
+    auto mo = parse_sig_(m);
     if (accept(TokenType::RIGHTARROW)) {
       auto t = new_const_var("->");
-      t->tau.push_back(to_poly(mo));
-      t->tau.push_back(to_poly(parse_monotype(m)));
-      mo = t;
+      t->tau.push_back(mo);
+      t->tau.push_back(parse_sig(m));
+      mo = new_poly(t);
     }
     return mo;
   }
-
-  shared_ptr<Mono_> parse_monotype_(map<string, shared_ptr<Mono_>> &m) {
-    shared_ptr<Mono_> mo;
-    if (accept(TokenType::IDENTIFIER)) {
-      if (m.count(t.data)) {
-        mo = m[t.data];
-      } else {
-        mo = new_const_var(t.data);
-      }
-    } else {
-      expect(TokenType::LEFT_PARENTHESIS);
-      mo = parse_monotype(m);
-      expect(TokenType::RIGHT_PARENTHESIS);
-    }
-    if (mo->is_const && mo->D != "->") {
-      auto t1 = mo;
-      while (match(TokenType::IDENTIFIER) ||
-             match(TokenType::LEFT_PARENTHESIS)) {
-        if (accept(TokenType::IDENTIFIER)) {
-          if (m.count(t.data)) {
-            mo = m[t.data];
-          } else {
-            mo = new_const_var(t.data);
-          }
-        } else {
-          expect(TokenType::LEFT_PARENTHESIS);
-          mo = parse_monotype(m);
-          expect(TokenType::RIGHT_PARENTHESIS);
-        }
-        t1->tau.push_back(to_poly(mo));
-      }
-      mo = t1;
-    }
-    return mo;
-  }
-
-  shared_ptr<Poly_> parse_polytype(map<string, shared_ptr<Mono_>> &m) {
+  shared_ptr<Poly_> parse_sig_(map<string, shared_ptr<Mono_>> &m) {
+    shared_ptr<Poly_> mo;
     if (accept(TokenType::FORALL)) {
       expect(TokenType::IDENTIFIER);
       if (m.count(t.data)) {
@@ -120,13 +87,42 @@ struct Parser {
       auto alpha = new_forall_var();
       m[t.data] = alpha;
       expect(TokenType::DOT);
-      return to_poly(alpha, parse_polytype(m));
+      mo = new_poly(alpha, parse_sig(m));
+    } else if (accept(TokenType::IDENTIFIER)) {
+      if (m.count(t.data)) {
+        mo = new_poly(m[t.data]);
+      } else {
+        mo = new_poly(new_const_var(t.data));
+      }
     } else {
-      return to_poly(parse_monotype(m));
+      expect(TokenType::LEFT_PARENTHESIS);
+      mo = parse_sig(m);
+      expect(TokenType::RIGHT_PARENTHESIS);
     }
+
+    if (mo->is_mono && is_c(get_mono(mo)) && get_mono(mo)->D != "->") {
+      auto t1 = get_mono(mo);
+      while (match(TokenType::IDENTIFIER) ||
+             match(TokenType::LEFT_PARENTHESIS)) {
+        if (accept(TokenType::IDENTIFIER)) {
+          if (m.count(t.data)) {
+            mo = new_poly(m[t.data]);
+          } else {
+            mo = new_poly(new_const_var(t.data));
+          }
+        } else {
+          expect(TokenType::LEFT_PARENTHESIS);
+          mo = parse_sig(m);
+          expect(TokenType::RIGHT_PARENTHESIS);
+        }
+        t1->tau.push_back(mo);
+      }
+      mo = new_poly(t1);
+    }
+    return mo;
   }
 
-  shared_ptr<Constructor> parse_constructor() {
+  shared_ptr<Constructor> parse_constructor(map<string, shared_ptr<Mono_>> &m) {
     auto c = make_shared<Constructor>();
     expect(TokenType::IDENTIFIER);
     if (constructor_decl->count(t.data)) {
@@ -140,22 +136,13 @@ struct Parser {
     }
     c->name = t.data;
     expect(TokenType::COLON);
-    map<string, shared_ptr<Mono_>> m;
-    c->type = parse_polytype(m);
+    c->type = parse_sig(m);
     (*constructor_decl)[c->name] = c;
-    auto tp = c->type;
-    while (!tp->is_mono) {
-      tp = tp->sigma;
-    }
-    auto tm = tp->tau;
+    auto tm = get_mono(c->type);
     c->arg = 0;
-    while (tm->is_const && tm->D == "->") {
+    while (is_c(tm) && tm->D == "->") {
       c->arg++;
-      auto tp = tm->tau[1];
-      while (!tp->is_mono) {
-        tp = tp->sigma;
-      }
-      tm = tp->tau;
+      tm = get_mono(tm->tau[1]);
     }
     return c;
   }
@@ -192,7 +179,8 @@ struct Parser {
     }
     expect(TokenType::LEFT_BRACE);
     while (!accept(TokenType::RIGHT_BRACE)) {
-      d->constructors.push_back(parse_constructor());
+      map<string, shared_ptr<Mono_>> m;
+      d->constructors.push_back(parse_constructor(m));
       d->constructors.back()->data_name = d->name;
       if (!match(TokenType::RIGHT_BRACE)) {
         expect(TokenType::SEMICOLON);
@@ -217,13 +205,16 @@ struct Parser {
       expr->x = t.data;
       if (accept(TokenType::COLON)) {
         map<string, shared_ptr<Mono_>> m;
-        s = parse_polytype(m);
+        s = parse_sig(m);
       }
       expect(TokenType::EQUAL);
       expr->e1 = parse_expr();
       expr->e1->sig = s;
       expect(TokenType::IN);
       expr->e2 = parse_expr();
+      if (s != nullptr) {
+        check(data_decl, expr);
+      }
     } else if (accept(TokenType::REC)) {
       expr->T = ExprType::REC;
       set<string> st;
@@ -243,11 +234,14 @@ struct Parser {
         expr->xes.push_back(make_pair(t.data, nullptr));
         if (accept(TokenType::COLON)) {
           map<string, shared_ptr<Mono_>> m;
-          s = parse_polytype(m);
+          s = parse_sig(m);
         }
         expect(TokenType::EQUAL);
         expr->xes.back().second = parse_expr();
         expr->xes.back().second->sig = s;
+        if (s != nullptr) {
+          check(data_decl, expr->xes.back().second);
+        }
       } while (accept(TokenType::AND));
       expect(TokenType::IN);
       expr->e = parse_expr();
@@ -295,7 +289,7 @@ struct Parser {
       shared_ptr<Poly_> g;
       if (accept(TokenType::COLON)) {
         map<string, shared_ptr<Mono_>> m;
-        g = parse_polytype(m);
+        g = parse_sig(m);
       }
       expr->gadt = g;
       expect(TokenType::LEFT_BRACE);
@@ -359,7 +353,11 @@ struct Parser {
         }
       } while (!match(TokenType::RIGHT_BRACE));
       expect(TokenType::RIGHT_BRACE);
+      if (g != nullptr) {
+        check(data_decl, expr->xes.back().second);
+      }
     } else if (accept(TokenType::FFI)) {
+      // TODO support typeof() FIXME ffi must have a sig
       expr->T = ExprType::FFI;
       stringstream s(t.data);
       s.get();
@@ -373,78 +371,6 @@ struct Parser {
     }
     return expr;
   }
-  void check(shared_ptr<Constructor> c, shared_ptr<Mono_> p,
-             set<shared_ptr<Mono_>> &st, bool m, bool r) {
-    if (p->is_const) {
-      if (p->D == "->") {
-        assert(p->tau.size() == 2);
-        {
-          auto tp = p->tau[0];
-          while (!tp->is_mono) {
-            tp = tp->sigma;
-          }
-          check(c, tp->tau, st, m && false, r);
-        }
-        {
-          auto tp = p->tau[1];
-          while (!tp->is_mono) {
-            tp = tp->sigma;
-          }
-          check(c, tp->tau, st, m && true, r);
-        }
-      } else {
-        if (data_decl->count(p->D)) {
-          if (m) {
-            if (p->D != c->data_name) {
-              cerr << "parser: in constructor " << c->name << ":"
-                   << to_string(c->type) << endl
-                   << "return type is " << p->D << " instead of "
-                   << c->data_name << endl;
-              exit(EXIT_FAILURE);
-            }
-          }
-          if (p->tau.size() != (*data_decl)[p->D]->arg) {
-            cerr << "parser: in constructor " << c->name << ":"
-                 << to_string(c->type) << endl
-                 << p->D << " expects " << (*data_decl)[p->D]->arg
-                 << " arguments, but only gets " << p->tau.size() << endl;
-            exit(EXIT_FAILURE);
-          }
-          for (size_t i = 0; i < p->tau.size(); i++) {
-            auto tp = p->tau[i];
-            while (!tp->is_mono) {
-              tp = tp->sigma;
-            }
-            check(c, tp->tau, st, false, m || r);
-          }
-          if (m) {
-            if (!st.empty()) {
-              cerr << "parser: in constructor " << c->name << ":"
-                   << to_string(c->type) << endl
-                   << "existential type is not supported yet" << endl;
-              exit(EXIT_FAILURE);
-            }
-          }
-        } else {
-          cerr << "parser: in constructor " << c->name << ":"
-               << to_string(c->type) << endl
-               << p->D << " is not a type" << endl;
-          exit(EXIT_FAILURE);
-        }
-      }
-    } else {
-      if (m) {
-        cerr << "parser: in constructor " << c->name << ":"
-             << to_string(c->type) << endl
-             << "return type is a type variable instead of " << c->data_name
-             << endl;
-        exit(EXIT_FAILURE);
-      }
-      if (r) {
-        st.erase(p);
-      }
-    }
-  }
   pair<pair<shared_ptr<map<string, shared_ptr<Data>>>,
             shared_ptr<map<string, shared_ptr<Constructor>>>>,
        shared_ptr<Expr>>
@@ -454,15 +380,7 @@ struct Parser {
     while (accept(TokenType::DATA)) {
       parse_data();
     }
-    for (auto &c : *constructor_decl) {
-      shared_ptr<Poly_> p = c.second->type;
-      set<shared_ptr<Mono_>> st;
-      while (!p->is_mono) {
-        st.insert(p->alpha);
-        p = p->sigma;
-      }
-      check(c.second, p->tau, st, true, false);
-    }
+    check(data_decl, constructor_decl);
     auto expr = parse_expr();
     expect(TokenType::END);
     return make_pair(make_pair(data_decl, constructor_decl), expr);
