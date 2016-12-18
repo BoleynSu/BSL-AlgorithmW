@@ -200,7 +200,6 @@ struct Parser {
       c->sig = r.first;
     }
     (*constructor_decl)[c->name] = c;
-    // FIXME
     if (c->rank2sig != nullptr) {
       c->arg = 1;
       auto tm = get_mono(c->rank2sig);

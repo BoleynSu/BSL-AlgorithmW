@@ -233,8 +233,9 @@ void infer(shared_ptr<Expr> expr, shared_ptr<Context> context,
       } else {
         context->set_poly(expr->x, gen(context, expr->e1->type));
       }
-      cerr << "//" << expr->x << " : " << to_string(context->get_poly(expr->x))
-           << endl;
+      //      cerr << "//" << expr->x << " : " <<
+      //      to_string(context->get_poly(expr->x))
+      //           << endl;
       infer(expr->e2, context, dnc);
       expr->type = expr->e2->type;
       context->unset(expr->x);
@@ -257,8 +258,9 @@ void infer(shared_ptr<Expr> expr, shared_ptr<Context> context,
       for (size_t i = 0; i < expr->xes.size(); i++) {
         context->set_poly(expr->xes[i].first,
                           gen(context, expr->xes[i].second->type));
-        cerr << "//" << expr->xes[i].first << " : "
-             << to_string(context->get_poly(expr->xes[i].first)) << endl;
+        //        cerr << "//" << expr->xes[i].first << " : "
+        //             << to_string(context->get_poly(expr->xes[i].first)) <<
+        //             endl;
       }
       infer(expr->e, context, dnc);
       expr->type = expr->e->type;
@@ -272,16 +274,30 @@ void infer(shared_ptr<Expr> expr, shared_ptr<Context> context,
       for (auto &pes_ : expr->pes) {
         auto pes = pes_.second;
         assert(dnc.second->count(pes_.first));
+        auto c = (*dnc.second)[pes_.first];
+        assert(c->arg == pes.first.size());
         if ((*dnc.second)[pes_.first]->rank2sig != nullptr) {
-          auto tau = rank2inst(
-              (*dnc.second)[pes_.first]->rank2sig,
-              (*dnc.first)[(*dnc.second)[pes_.first]->data_name]->exists);
-          context->set_poly(pes.first.front(), tau.first);
-          // TODO FIXME
-          infer(pes.second, context, dnc);
-          context->unset(pes.first.front());
+          auto tau = rank2inst(c->rank2sig, (*dnc.first)[c->data_name]->exists);
+          vector<shared_ptr<Mono>> taus;
+          taus.push_back(nullptr);
+          for (size_t i = 1; i < pes.first.size(); i++) {
+            taus.push_back(new_forall_var());
+            auto t1 = new_const_var("->"), t2 = new_forall_var();
+            t1->tau.push_back(taus[i]);
+            t1->tau.push_back(t2);
+            unify(t1, tau.second, &cerr);
+            tau.second = t2;
+          }
           auto fn = new_const_var("->");
           fn->tau.push_back(tau.second);
+          context->set_poly(pes.first.front(), tau.first);
+          for (size_t i = 1; i < pes.first.size(); i++) {
+            context->set_poly(pes.first[i], new_poly(taus[i]));
+          }
+          infer(pes.second, context, dnc);
+          for (size_t i = 0; i < pes.first.size(); i++) {
+            context->unset(pes.first[i]);
+          }
           fn->tau.push_back(pes.second->type);
           fns[pes_.first] = gen(context, fn);
         } else {
@@ -330,15 +346,22 @@ void infer(shared_ptr<Expr> expr, shared_ptr<Context> context,
         assert(t->is_const && t->D == "->" && is_c(t->tau[0]) &&
                dnc.first->count(t->tau[0]->D));
       }
-      for (auto &fn : fns) {
-        cerr << "//case " << fn.first << " : " << to_string(fn.second) << endl;
-      }
-      cerr << "//: " << to_string(expr->gadt) << endl;
+      //      for (auto &fn : fns) {
+      //        cerr << "//case " << fn.first << " : " << to_string(fn.second)
+      //        << endl;
+      //      }
+      //      cerr << "//: " << to_string(expr->gadt) << endl;
       for (auto c : (*dnc.first)[(*dnc.second)[fns.begin()->first]->data_name]
                         ->constructors) {
         if (c->rank2sig != nullptr) {
           auto tau = rank2inst(c->rank2sig, (*dnc.first)[c->data_name]->exists);
-          assert(c->arg == 1);
+          for (size_t i = 1; i < c->arg; i++) {
+            auto t1 = new_const_var("->"), t2 = new_forall_var();
+            t1->tau.push_back(new_forall_var());
+            t1->tau.push_back(t2);
+            unify(t1, tau.second, &cerr);
+            tau.second = t2;
+          }
           auto fn = new_const_var("->"), ret = new_forall_var();
           fn->tau.push_back(tau.second);
           fn->tau.push_back(ret);
@@ -359,11 +382,9 @@ void infer(shared_ptr<Expr> expr, shared_ptr<Context> context,
           }
         } else {
           auto tau = inst(c->sig, (*dnc.first)[c->data_name]->exists);
-          vector<shared_ptr<Mono>> taus;
           for (size_t i = 0; i < c->arg; i++) {
-            taus.push_back(new_forall_var());
             auto t1 = new_const_var("->"), t2 = new_forall_var();
-            t1->tau.push_back(taus[i]);
+            t1->tau.push_back(new_forall_var());
             t1->tau.push_back(t2);
             unify(t1, tau, &cerr);
             tau = t2;
