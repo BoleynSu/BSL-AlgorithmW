@@ -231,13 +231,13 @@ struct CodeGenerator {
       string blk = blks[i]->str();
       string header = blk.substr(0, blk.find('{'));
       header.back() = ';';
-      out << "inline " << header << endl;
+      out << header << endl;
     }
     for (auto fn : fns) {
       out << fn->str();
     }
     for (auto blk : blks) {
-      out << "inline " << blk->str();
+      out << blk->str();
     }
     out << "int main() { " << main.str() << "; }" << endl;
   }

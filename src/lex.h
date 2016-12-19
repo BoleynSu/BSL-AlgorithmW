@@ -142,9 +142,9 @@ struct Token {
 
 struct Lexer {
   string filename;
-  ifstream in;
+  istream &in;
   deque<Token> tokens;
-  Lexer(const string &filename) : filename(filename), in(filename) {
+  Lexer(const string &filename, istream &in) : filename(filename), in(in) {
     Position position;
     position.filename = filename;
     position.endRow = 1;
