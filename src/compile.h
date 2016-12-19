@@ -1,9 +1,11 @@
 #ifndef SU_BOLEYN_BSL_COMPILER_H
 #define SU_BOLEYN_BSL_COMPILER_H
 
+#include <libgen.h>
 #include <cstdlib>
 #include <iostream>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -20,7 +22,12 @@ using namespace std;
 struct Compiler {
   string cmd;
   void usage() {
-    cerr << "Usage: " << cmd << " [options] file..." << endl;
+    cerr << "Usage: " << cmd << " [options] file..." << endl
+         << "Options:" << endl
+         << "  -c\t\t\tCompile to C only" << endl
+         << "  -i $include_path\tAdd an include path" << endl
+         << "  -m $options\t\tPass more options to gcc" << endl
+         << "  -e $executable\tCompile to an executable" << endl;
     exit(EXIT_FAILURE);
   }
   Compiler(int argc, char** argv) : cmd(argv[0]) {

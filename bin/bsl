@@ -1,0 +1,9 @@
+#!/bin/bash
+root=`dirname \`dirname \\\`realpath $0\\\`\``
+
+(if [ ! -f $root/bin/bslc ]; then
+g++ -std=c++11 -Wall $root/src/main.cpp -o $root/bin/bslc
+fi) &&
+
+$root/bin/bslc $1 -i $root/rt/ -m "-O3 -w"
+
