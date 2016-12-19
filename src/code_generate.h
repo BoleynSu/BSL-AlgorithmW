@@ -80,17 +80,20 @@ struct CodeGenerator {
             first = false;
           }
         }
-        out << " } tag;" << endl;
+        out << " }";
         if (da->maxarg == 0) {
+          out << ";" << endl;
         } else {
           if ((da->to_ptr == numeric_limits<size_t>::max() &&
                da->constructors.size() > 1) ||
               (da->to_ptr != numeric_limits<size_t>::max() &&
                da->constructors.size() > 2)) {
+            out << " tag;" << endl;
             for (size_t i = 0; i < da->maxarg; i++) {
               out << "  " << BSL_RT_VAR_T << " " << arg(i) << ";" << endl;
             }
           } else {
+            out << ";" << endl;
             for (size_t i = 0; i < da->constructors.size(); i++) {
               if (i != da->to_ptr) {
                 auto c = da->constructors[i];

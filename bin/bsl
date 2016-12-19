@@ -5,5 +5,7 @@ root=`dirname \`dirname \\\`realpath $0\\\`\``
 g++ -std=c++11 -Wall $root/src/main.cpp -o $root/bin/bslc
 fi) &&
 
-$root/bin/bslc $1 -i $root/rt/ -m "-O3 -w"
-
+(if [ -z $BSL_RT_WITH_GC ];
+then $root/bin/bslc $1 -i $root/rt/ -m "-O3 -w"
+else $root/bin/bslc $1 -i $root/rt/with_gc/ -m "-O3 -w -lgc"
+fi)

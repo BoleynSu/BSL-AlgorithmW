@@ -1,18 +1,12 @@
 #include <stdlib.h>
 
 void *BSL_RT_MALLOC(size_t sz) {
-  static void *base, *top;
-  if (sz < top - base) {
-    return top -= sz;
-  } else {
+  static void *base=1 << 23, *top = 1 << 23;
+  if ((top -= sz) < base) {
     base = malloc(1 << 23);
-    top = base + (1 << 23);
-    if (sz < top - base) {
-      return top -= sz;
-    } else {
-      return malloc(sz);
-    }
+    top = base + (1 << 23) - sz;
   }
+  return top;
 }
 
 typedef void* BSL_RT_VAR_T;
