@@ -579,7 +579,7 @@ struct CodeGenerator {
     codegen(main, optimize(expr), map<string, size_t>());
 
     for (size_t i : cons) {
-      out << "inline " << BSL_RT_VAR_T << " " << BSL_CON_ << i << "("
+      out << BSL_RT_VAR_T << " " << BSL_CON_ << i << "("
           << BSL_RT_CLOSURE_T << " " << tmp() << ", " << BSL_RT_FUN_T << " fun";
       for (size_t j = 0; j < i; j++) {
         out << ", " << BSL_RT_VAR_T << " " << var(arg(j));
@@ -605,13 +605,13 @@ struct CodeGenerator {
       string blk = blks[i]->str();
       string header = blk.substr(0, blk.find('{'));
       header.back() = ';';
-      out << "inline " << header << endl;
+      out << header << endl;
     }
     for (auto fn : fns) {
-      out << "inline " << fn->str();
+      out << fn->str();
     }
     for (auto blk : blks) {
-      out << "inline " << blk->str();
+      out << blk->str();
     }
     out << "int main() { " << main.str() << "; }" << endl;
   }
