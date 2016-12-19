@@ -10,10 +10,7 @@ You can use following command to play with the example.
 ```bash
 git clone https://github.com/BoleynSu/algorithm-w.git
 cd algorithm-w
-g++ src/main.cpp -std=c++11 -o bslc &&
-./bslc example/sort.bsl > example/sort.c &&
-gcc -w -Irt example/sort.c -o example/sort &&
-./example/sort
+./bin/bsl ./example/sort.bsl
 ```
 
 It will sort all inputed numbers. Enter CTRL+D to end your input.
