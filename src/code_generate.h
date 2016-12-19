@@ -337,7 +337,7 @@ struct CodeGenerator {
              da->constructors.size() > 2)) {
           nout << "  switch (";
           if (da->maxarg == 0) {
-            nout << tmp();
+            nout << "(int) " << tmp();
           } else {
             nout << "((" << type(da->name) << "*) " << tmp() << ")->tag";
           }
@@ -434,22 +434,27 @@ struct CodeGenerator {
           }
         }
         out << "typedef struct {" << endl;
+        out << "  enum {";
+        bool first = true;
+        if (da->to_ptr != numeric_limits<size_t>::max()) {
+          auto c = da->constructors[da->to_ptr];
+          out << (first ? " " : ", ") << tag(c->name);
+          first = false;
+        }
+        for (size_t i = 0; i < da->constructors.size(); i++) {
+          auto c = da->constructors[i];
+          if (i != da->to_ptr) {
+            out << (first ? " " : ", ") << tag(c->name);
+            first = false;
+          }
+        }
+        out << " } tag;" << endl;
         if (da->maxarg == 0) {
         } else {
           if ((da->to_ptr == numeric_limits<size_t>::max() &&
                da->constructors.size() > 1) ||
               (da->to_ptr != numeric_limits<size_t>::max() &&
                da->constructors.size() > 2)) {
-            out << "  enum {";
-            bool first = true;
-            for (size_t i = 0; i < da->constructors.size(); i++) {
-              auto c = da->constructors[i];
-              if (i != da->to_ptr) {
-                out << (first ? " " : ", ") << tag(c->name);
-                first = false;
-              }
-            }
-            out << " } tag;" << endl;
             for (size_t i = 0; i < da->maxarg; i++) {
               out << "  " << BSL_RT_VAR_T << " " << arg(i) << ";" << endl;
             }
