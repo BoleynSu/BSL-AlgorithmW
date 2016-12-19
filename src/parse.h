@@ -1,7 +1,6 @@
 #ifndef SU_BOLEYN_BSL_PARSE_H
 #define SU_BOLEYN_BSL_PARSE_H
 
-#include <cassert>
 #include <cstdlib>
 #include <iostream>
 #include <map>
@@ -11,20 +10,18 @@
 #include <utility>
 #include <vector>
 
-#include "data.h"
-#include "expr.h"
+#include "ds/data.h"
+#include "ds/expr.h"
+#include "ds/type.h"
+#include "ds/unit.h"
 #include "lex.h"
-#include "sig_check.h"
-#include "type.h"
 
 using namespace std;
 
 struct Parser {
   Lexer &lexer;
   Token t;
-  shared_ptr<map<string, shared_ptr<Data>>> data_decl;
-  shared_ptr<map<string, shared_ptr<Constructor>>> constructor_decl;
-
+  shared_ptr<Unit> unit;
   Parser(Lexer &lexer) : lexer(lexer) {}
 
   bool match(TokenType token_type) {
@@ -181,7 +178,7 @@ struct Parser {
   shared_ptr<Constructor> parse_constructor() {
     auto c = make_shared<Constructor>();
     expect(TokenType::IDENTIFIER);
-    if (constructor_decl->count(t.data)) {
+    if (unit->has_data(t.data)) {
       string data = t.data;
       if (data.length() > 78) {
         data = data.substr(0, 75) + "...";
@@ -199,7 +196,7 @@ struct Parser {
     } else {
       c->sig = r.first;
     }
-    (*constructor_decl)[c->name] = c;
+    unit->set_constructor(c->name, c);
     if (c->rank2sig != nullptr) {
       c->arg = 1;
       auto tm = get_mono(c->rank2sig);
@@ -221,7 +218,7 @@ struct Parser {
   shared_ptr<Data> parse_data() {
     auto d = make_shared<Data>();
     expect(TokenType::IDENTIFIER);
-    if (data_decl->count(t.data)) {
+    if (unit->has_data(t.data)) {
       string data = t.data;
       if (data.length() > 78) {
         data = data.substr(0, 75) + "...";
@@ -256,7 +253,7 @@ struct Parser {
         expect(TokenType::SEMICOLON);
       }
     }
-    (*data_decl)[d->name] = d;
+    unit->set_data(d->name, d);
     return d;
   }
 
@@ -276,7 +273,6 @@ struct Parser {
       if (accept(TokenType::COLON)) {
         map<string, shared_ptr<Mono>> m;
         s = parse_polytype(m);
-        check(data_decl, s);
       }
       expect(TokenType::EQUAL);
       expr->e1 = parse_expr();
@@ -303,7 +299,6 @@ struct Parser {
         if (accept(TokenType::COLON)) {
           map<string, shared_ptr<Mono>> m;
           s = parse_polytype(m);
-          check(data_decl, s);
         }
         expect(TokenType::EQUAL);
         expr->xes.back().second = parse_expr();
@@ -356,14 +351,13 @@ struct Parser {
       if (accept(TokenType::COLON)) {
         map<string, shared_ptr<Mono>> m;
         g = parse_polytype(m);
-        check(data_decl, g);
       }
       expr->gadt = g;
       expect(TokenType::LEFT_BRACE);
       string data_name;
       do {
         expect(TokenType::IDENTIFIER);
-        if (!constructor_decl->count(t.data)) {
+        if (!unit->has_constructor(t.data)) {
           string data = t.data;
           if (data.length() > 78) {
             data = data.substr(0, 75) + "...";
@@ -384,7 +378,7 @@ struct Parser {
         string cname = t.data;
         expr->pes[cname] = make_pair(vector<string>{}, nullptr);
         auto &pes = expr->pes[cname];
-        auto c = (*constructor_decl)[cname];
+        auto c = unit->get_constructor(cname);
         if (data_name.empty()) {
           data_name = c->data_name;
         } else if (data_name != c->data_name) {
@@ -434,19 +428,14 @@ struct Parser {
     }
     return expr;
   }
-  pair<pair<shared_ptr<map<string, shared_ptr<Data>>>,
-            shared_ptr<map<string, shared_ptr<Constructor>>>>,
-       shared_ptr<Expr>>
-  parse() {
-    data_decl = make_shared<map<string, shared_ptr<Data>>>();
-    constructor_decl = make_shared<map<string, shared_ptr<Constructor>>>();
+  shared_ptr<Unit> parse() {
+    unit = make_shared<Unit>();
     while (accept(TokenType::DATA)) {
       parse_data();
     }
-    check(data_decl, constructor_decl);
-    auto expr = parse_expr();
+    unit->expr = parse_expr();
     expect(TokenType::END);
-    return make_pair(make_pair(data_decl, constructor_decl), expr);
+    return unit;
   }
 };
 

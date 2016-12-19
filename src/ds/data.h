@@ -1,5 +1,5 @@
-#ifndef SU_BOLEYN_BSL_DATA_H
-#define SU_BOLEYN_BSL_DATA_H
+#ifndef SU_BOLEYN_BSL_DS_DATA_H
+#define SU_BOLEYN_BSL_DS_DATA_H
 
 #include <memory>
 #include <string>

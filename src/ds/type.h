@@ -1,5 +1,5 @@
-#ifndef SU_BOLEYN_BSL_TYPE_H
-#define SU_BOLEYN_BSL_TYPE_H
+#ifndef SU_BOLEYN_BSL_DS_TYPE_H
+#define SU_BOLEYN_BSL_DS_TYPE_H
 
 #include <cassert>
 #include <map>

@@ -14,13 +14,11 @@
 #include <utility>
 #include <vector>
 
-#include "data.h"
-#include "expr.h"
+#include "ds/data.h"
+#include "ds/expr.h"
+#include "ds/type.h"
+#include "ds/unit.h"
 #include "optimize.h"
-#include "parse.h"
-#include "sig_check.h"
-#include "type.h"
-#include "type_infer.h"
 
 using namespace std;
 
@@ -39,14 +37,209 @@ const string BSL_VAR_ = "BSL_VAR_";
 const string BSL_ENV = "BSL_ENV";
 
 struct CodeGenerator {
-  Parser &parser;
+  shared_ptr<Unit> unit;
+  Optimizer optimizer;
   ostream &out;
-  shared_ptr<map<string, shared_ptr<Data>>> data;
+
   vector<shared_ptr<stringstream>> blks;
   vector<shared_ptr<stringstream>> fns;
   set<size_t> cons;
-  CodeGenerator(Parser &parser, ostream &out) : parser(parser), out(out) {
-    codegen(parser.parse());
+  CodeGenerator(shared_ptr<Unit> unit, Optimizer &optimizer, ostream &out)
+      : unit(unit), optimizer(optimizer), out(out) {
+    auto expr = unit->expr;
+
+    out << "#include <bsl_rt.h>" << endl;
+
+    for (auto dai : unit->data) {
+      auto da = dai.second;
+      if (da->constructors.size()) {
+        da->maxarg = 0;
+        for (size_t i = 0; i < da->constructors.size(); i++) {
+          auto c = da->constructors[i];
+          da->maxarg = max(da->maxarg, c->arg);
+        }
+        da->to_ptr = numeric_limits<size_t>::max();
+        for (size_t i = 0; i < da->constructors.size(); i++) {
+          auto c = da->constructors[i];
+          if (da->to_ptr == numeric_limits<size_t>::max() && c->arg == 0) {
+            da->to_ptr = i;
+          }
+        }
+        out << "typedef struct {" << endl;
+        out << "  enum {";
+        bool first = true;
+        if (da->to_ptr != numeric_limits<size_t>::max()) {
+          auto c = da->constructors[da->to_ptr];
+          out << (first ? " " : ", ") << tag(c->name);
+          first = false;
+        }
+        for (size_t i = 0; i < da->constructors.size(); i++) {
+          auto c = da->constructors[i];
+          if (i != da->to_ptr) {
+            out << (first ? " " : ", ") << tag(c->name);
+            first = false;
+          }
+        }
+        out << " } tag;" << endl;
+        if (da->maxarg == 0) {
+        } else {
+          if ((da->to_ptr == numeric_limits<size_t>::max() &&
+               da->constructors.size() > 1) ||
+              (da->to_ptr != numeric_limits<size_t>::max() &&
+               da->constructors.size() > 2)) {
+            for (size_t i = 0; i < da->maxarg; i++) {
+              out << "  " << BSL_RT_VAR_T << " " << arg(i) << ";" << endl;
+            }
+          } else {
+            for (size_t i = 0; i < da->constructors.size(); i++) {
+              if (i != da->to_ptr) {
+                auto c = da->constructors[i];
+                if (c->arg == 1 && da->constructors.size() == 1) {
+                } else {
+                  for (size_t i = 0; i < c->arg; i++) {
+                    out << "  " << BSL_RT_VAR_T << " " << arg(i) << ";" << endl;
+                  }
+                }
+              }
+            }
+          }
+        }
+        out << "} " << type(da->name) << ";" << endl;
+
+        for (size_t i = 0; i < da->constructors.size(); i++) {
+          auto c = da->constructors[i];
+          out << BSL_RT_VAR_T << " " << con(c->name) << "(" << type(da->name)
+              << " *" << tmp();
+          for (size_t j = 0; j < c->arg; j++) {
+            out << ", " << BSL_RT_VAR_T << " " << var(arg(j));
+          }
+          out << ") {" << endl;
+          if (da->maxarg == 0) {
+            out << "  return " << i << ";" << endl;
+          } else {
+            if (i != da->to_ptr) {
+              if ((da->to_ptr == numeric_limits<size_t>::max() &&
+                   da->constructors.size() > 1) ||
+                  (da->to_ptr != numeric_limits<size_t>::max() &&
+                   da->constructors.size() > 2)) {
+                out << "  " << tmp() << "->tag = " << tag(c->name) << ";"
+                    << endl;
+                for (size_t j = 0; j < c->arg; j++) {
+                  out << "  " << tmp() << "->" << arg(j) << " = " << var(arg(j))
+                      << ";" << endl;
+                }
+              } else {
+                if (c->arg == 1 && da->constructors.size() == 1) {
+                  out << "  " << tmp() << " = " << var(arg(0)) << ";" << endl;
+                } else {
+                  for (size_t j = 0; j < c->arg; j++) {
+                    out << "  " << tmp() << "->" << arg(j) << " = "
+                        << var(arg(j)) << ";" << endl;
+                  }
+                }
+              }
+              out << "  return (" << BSL_RT_VAR_T << ")" << tmp() << ";"
+                  << endl;
+            } else {
+              out << "  return NULL;" << endl;
+            }
+          }
+          out << "}" << endl;
+        }
+      }
+    }
+    for (auto dai : unit->data) {
+      auto da = dai.second;
+      if (da->constructors.size()) {
+        for (size_t i = 0; i < da->constructors.size(); i++) {
+          auto c = da->constructors[i];
+          auto e = make_shared<Expr>();
+          e->T = ExprType::LET;
+          e->x = c->name;
+          auto lam = make_shared<Expr>();
+          auto cur = lam;
+          for (size_t j = 0; j < c->arg; j++) {
+            cur->T = ExprType::ABS;
+            cur->x = arg(j);
+            cur->e = make_shared<Expr>();
+            cur = cur->e;
+          }
+          stringstream s;
+          s << " " << con(c->name) << "(";
+          if (da->maxarg == 0) {
+            s << "NULL";
+          } else {
+            if (i != da->to_ptr) {
+              if ((da->to_ptr == numeric_limits<size_t>::max() &&
+                   da->constructors.size() > 1) ||
+                  (da->to_ptr != numeric_limits<size_t>::max() &&
+                   da->constructors.size() > 2)) {
+                s << BSL_RT_MALLOC << "(sizeof(" << type(c->data_name) << "))";
+              } else {
+                if (c->arg == 1 && da->constructors.size() == 1) {
+                  s << "NULL";
+                } else {
+                  s << BSL_RT_MALLOC << "(sizeof(" << type(c->data_name)
+                    << "))";
+                }
+              }
+            } else {
+              s << "NULL";
+            }
+          }
+          for (size_t j = 0; j < c->arg; j++) {
+            s << ", "
+              << "$" << arg(j);
+          }
+          s << ") ";
+          cur->T = ExprType::FFI;
+          cur->ffi = s.str();
+          e->e1 = lam;
+          e->e2 = expr;
+          expr = e;
+        }
+      }
+    }
+
+    stringstream main;
+    codegen(main, optimizer.optimize(expr), map<string, size_t>());
+
+    for (size_t i : cons) {
+      out << BSL_RT_VAR_T << " " << BSL_CON_ << i << "(" << BSL_RT_CLOSURE_T
+          << " " << tmp() << ", " << BSL_RT_FUN_T << " fun";
+      for (size_t j = 0; j < i; j++) {
+        out << ", " << BSL_RT_VAR_T << " " << var(arg(j));
+      }
+      out << ") {" << endl
+          << "  " << tmp() << "->fun"
+          << " = fun;" << endl;
+      for (size_t j = 0; j < i; j++) {
+        out << "  " << tmp() << "->env[" << j << "]"
+            << " = " << var(arg(j)) << ";" << endl;
+      }
+      out << "  return (" << BSL_RT_VAR_T << ") " << tmp() << ";" << endl
+          << "}" << endl;
+    }
+
+    for (size_t i = 0; i < fns.size(); i++) {
+      string fn = fns[i]->str();
+      string header = fn.substr(0, fn.find('{'));
+      header.back() = ';';
+      out << header << endl;
+    }
+    for (size_t i = 0; i < blks.size(); i++) {
+      string blk = blks[i]->str();
+      string header = blk.substr(0, blk.find('{'));
+      header.back() = ';';
+      out << "inline " << header << endl;
+    }
+    for (auto fn : fns) {
+      out << fn->str();
+    }
+    for (auto blk : blks) {
+      out << "inline " << blk->str();
+    }
+    out << "int main() { " << main.str() << "; }" << endl;
   }
 
   string var(string v, const map<string, size_t> &env = map<string, size_t>()) {
@@ -209,10 +402,9 @@ struct CodeGenerator {
         return;
       case ExprType::REC: {
         set<string> fv, rec;
-        for (size_t i = 0; i < expr->xes.size(); i++) {
-          fv.insert(expr->xes[i].second->fv.begin(),
-                    expr->xes[i].second->fv.end());
-          rec.insert(expr->xes[i].first);
+        for (auto &xe : expr->xes) {
+          fv.insert(xe.second->fv.begin(), xe.second->fv.end());
+          rec.insert(xe.first);
         }
         fv.insert(expr->e->fv.begin(), expr->e->fv.end());
         map<string, size_t> env_;
@@ -232,18 +424,16 @@ struct CodeGenerator {
         }
         nout << ") {" << endl;
         stringstream nnout;
-        for (size_t i = 0; i < expr->xes.size(); i++) {
-          auto t = find(expr->xes[i].second->type);
-          if (is_c(t) && t->D == "->" &&
-              expr->xes[i].second->T == ExprType::ABS) {
-            if (env_.count(expr->xes[i].first)) {
-              nout << "  " << var(expr->xes[i].first) << " = " << BSL_RT_MALLOC
+        for (auto &xe : expr->xes) {
+          auto t = find(xe.second->type);
+          if (is_c(t) && t->D == "->" && xe.second->T == ExprType::ABS) {
+            if (env_.count(xe.first)) {
+              nout << "  " << var(xe.first) << " = " << BSL_RT_MALLOC
                    << "(sizeof(" << BSL_RT_FUN_T << ") + "
-                   << expr->xes[i].second->fv.size() << " * sizeof("
-                   << BSL_RT_VAR_T << "));" << endl
+                   << xe.second->fv.size() << " * sizeof(" << BSL_RT_VAR_T
+                   << "));" << endl
                    << "  ";
-              codegen(nnout, expr->xes[i].second, map<string, size_t>(),
-                      expr->xes[i].first);
+              codegen(nnout, xe.second, map<string, size_t>(), xe.first);
               nnout << ";" << endl;
             } else {
               string data = expr->to_string(0, "  ");
@@ -312,8 +502,8 @@ struct CodeGenerator {
         assert(expr->pes.size() >= 1);
         auto t = get_mono(expr->gadt);
         assert(is_c(t) && t->D == "->" && t->tau[0]->is_const &&
-               data->count(t->tau[0]->D));
-        auto da = (*data)[t->tau[0]->D];
+               unit->has_data(t->tau[0]->D));
+        auto da = unit->get_data(t->tau[0]->D);
         if (da->to_ptr != numeric_limits<size_t>::max()) {
           assert(da->constructors.size());
           if (expr->pes.count(da->constructors[da->to_ptr]->name)) {
@@ -406,219 +596,6 @@ struct CodeGenerator {
       }
         return;
     }
-  }
-
-  void codegen(pair<pair<shared_ptr<map<string, shared_ptr<Data>>>,
-                         shared_ptr<map<string, shared_ptr<Constructor>>>>,
-                    shared_ptr<Expr>>
-                   prog) {
-    data = prog.first.first;
-    auto expr = prog.second;
-    auto context = make_shared<Context>();
-
-    out << "#include <bsl_rt.h>" << endl;
-
-    for (auto dai : *data) {
-      auto da = dai.second;
-      if (da->constructors.size()) {
-        da->maxarg = 0;
-        for (size_t i = 0; i < da->constructors.size(); i++) {
-          auto c = da->constructors[i];
-          da->maxarg = max(da->maxarg, c->arg);
-        }
-        da->to_ptr = numeric_limits<size_t>::max();
-        for (size_t i = 0; i < da->constructors.size(); i++) {
-          auto c = da->constructors[i];
-          if (da->to_ptr == numeric_limits<size_t>::max() && c->arg == 0) {
-            da->to_ptr = i;
-          }
-        }
-        out << "typedef struct {" << endl;
-        out << "  enum {";
-        bool first = true;
-        if (da->to_ptr != numeric_limits<size_t>::max()) {
-          auto c = da->constructors[da->to_ptr];
-          out << (first ? " " : ", ") << tag(c->name);
-          first = false;
-        }
-        for (size_t i = 0; i < da->constructors.size(); i++) {
-          auto c = da->constructors[i];
-          if (i != da->to_ptr) {
-            out << (first ? " " : ", ") << tag(c->name);
-            first = false;
-          }
-        }
-        out << " } tag;" << endl;
-        if (da->maxarg == 0) {
-        } else {
-          if ((da->to_ptr == numeric_limits<size_t>::max() &&
-               da->constructors.size() > 1) ||
-              (da->to_ptr != numeric_limits<size_t>::max() &&
-               da->constructors.size() > 2)) {
-            for (size_t i = 0; i < da->maxarg; i++) {
-              out << "  " << BSL_RT_VAR_T << " " << arg(i) << ";" << endl;
-            }
-          } else {
-            for (size_t i = 0; i < da->constructors.size(); i++) {
-              if (i != da->to_ptr) {
-                auto c = da->constructors[i];
-                if (c->arg == 1 && da->constructors.size() == 1) {
-                } else {
-                  for (size_t i = 0; i < c->arg; i++) {
-                    out << "  " << BSL_RT_VAR_T << " " << arg(i) << ";" << endl;
-                  }
-                }
-              }
-            }
-          }
-        }
-        out << "} " << type(da->name) << ";" << endl;
-
-        for (size_t i = 0; i < da->constructors.size(); i++) {
-          auto c = da->constructors[i];
-          out << BSL_RT_VAR_T << " " << con(c->name) << "(" << type(da->name)
-              << " *" << tmp();
-          for (size_t j = 0; j < c->arg; j++) {
-            out << ", " << BSL_RT_VAR_T << " " << var(arg(j));
-          }
-          out << ") {" << endl;
-          if (da->maxarg == 0) {
-            out << "  return " << i << ";" << endl;
-          } else {
-            if (i != da->to_ptr) {
-              if ((da->to_ptr == numeric_limits<size_t>::max() &&
-                   da->constructors.size() > 1) ||
-                  (da->to_ptr != numeric_limits<size_t>::max() &&
-                   da->constructors.size() > 2)) {
-                out << "  " << tmp() << "->tag = " << tag(c->name) << ";"
-                    << endl;
-                for (size_t j = 0; j < c->arg; j++) {
-                  out << "  " << tmp() << "->" << arg(j) << " = " << var(arg(j))
-                      << ";" << endl;
-                }
-              } else {
-                if (c->arg == 1 && da->constructors.size() == 1) {
-                  out << "  " << tmp() << " = " << var(arg(0)) << ";" << endl;
-                } else {
-                  for (size_t j = 0; j < c->arg; j++) {
-                    out << "  " << tmp() << "->" << arg(j) << " = "
-                        << var(arg(j)) << ";" << endl;
-                  }
-                }
-              }
-              out << "  return (" << BSL_RT_VAR_T << ")" << tmp() << ";"
-                  << endl;
-            } else {
-              out << "  return NULL;" << endl;
-            }
-          }
-          out << "}" << endl;
-        }
-      }
-    }
-    for (auto dai : *data) {
-      auto da = dai.second;
-      if (da->constructors.size()) {
-        for (size_t i = 0; i < da->constructors.size(); i++) {
-          auto c = da->constructors[i];
-          auto e = make_shared<Expr>();
-          e->T = ExprType::LET;
-          e->x = c->name;
-          auto lam = make_shared<Expr>();
-          auto cur = lam;
-          for (size_t j = 0; j < c->arg; j++) {
-            cur->T = ExprType::ABS;
-            cur->x = arg(j);
-            cur->e = make_shared<Expr>();
-            cur = cur->e;
-          }
-          stringstream s;
-          s << " " << con(c->name) << "(";
-          if (da->maxarg == 0) {
-            s << "NULL";
-          } else {
-            if (i != da->to_ptr) {
-              if ((da->to_ptr == numeric_limits<size_t>::max() &&
-                   da->constructors.size() > 1) ||
-                  (da->to_ptr != numeric_limits<size_t>::max() &&
-                   da->constructors.size() > 2)) {
-                s << BSL_RT_MALLOC << "(sizeof(" << type(c->data_name) << "))";
-              } else {
-                if (c->arg == 1 && da->constructors.size() == 1) {
-                  s << "NULL";
-                } else {
-                  s << BSL_RT_MALLOC << "(sizeof(" << type(c->data_name)
-                    << "))";
-                }
-              }
-            } else {
-              s << "NULL";
-            }
-          }
-          for (size_t j = 0; j < c->arg; j++) {
-            s << ", "
-              << "$" << arg(j);
-          }
-          s << ") ";
-          cur->T = ExprType::FFI;
-          cur->ffi = s.str();
-          e->e1 = lam;
-          if (c->rank2sig != nullptr) {
-            //            cerr << "//" << c->name << " : " <<
-            //            to_string(c->rank2sig) << endl;
-            context->set_rank2poly(c->name, c->rank2sig);
-          } else {
-            //            cerr << "//" << c->name << " : " << to_string(c->sig)
-            //            << endl;
-            context->set_poly(c->name, c->sig);
-          }
-          e->e2 = expr;
-          expr = e;
-        }
-      }
-    }
-
-    infer(prog.second, context, prog.first);
-
-    stringstream main;
-    codegen(main, optimize(expr), map<string, size_t>());
-
-    for (size_t i : cons) {
-      out << BSL_RT_VAR_T << " " << BSL_CON_ << i << "("
-          << BSL_RT_CLOSURE_T << " " << tmp() << ", " << BSL_RT_FUN_T << " fun";
-      for (size_t j = 0; j < i; j++) {
-        out << ", " << BSL_RT_VAR_T << " " << var(arg(j));
-      }
-      out << ") {" << endl
-          << "  " << tmp() << "->fun"
-          << " = fun;" << endl;
-      for (size_t j = 0; j < i; j++) {
-        out << "  " << tmp() << "->env[" << j << "]"
-            << " = " << var(arg(j)) << ";" << endl;
-      }
-      out << "  return (" << BSL_RT_VAR_T << ") " << tmp() << ";" << endl
-          << "}" << endl;
-    }
-
-    for (size_t i = 0; i < fns.size(); i++) {
-      string fn = fns[i]->str();
-      string header = fn.substr(0, fn.find('{'));
-      header.back() = ';';
-      out << header << endl;
-    }
-    for (size_t i = 0; i < blks.size(); i++) {
-      string blk = blks[i]->str();
-      string header = blk.substr(0, blk.find('{'));
-      header.back() = ';';
-      out << "inline " << header << endl;
-    }
-    for (auto fn : fns) {
-      out << fn->str();
-    }
-    for (auto blk : blks) {
-      out << "inline " << blk->str();
-    }
-    out << "int main() { " << main.str() << "; }" << endl;
   }
 };
 

@@ -1,7 +1,6 @@
-#ifndef SU_BOLEYN_BSL_CONTEXT_H
-#define SU_BOLEYN_BSL_CONTEXT_H
+#ifndef SU_BOLEYN_BSL_DS_CONTEXT_H
+#define SU_BOLEYN_BSL_DS_CONTEXT_H
 
-#include <cassert>
 #include <map>
 #include <memory>
 #include <string>
