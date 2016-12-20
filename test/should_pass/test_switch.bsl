@@ -23,10 +23,29 @@ data List a {
   Cons:forall a.a->List a->List a
 }
 
-let x = case A of {
-A->Unit;
-b->Unit;
+let x = case C of {
+A -> ffi ` (puts("ERROR!!!"),exit(1),NULL) `;
+b -> ffi ` (puts("ERROR!!!"),exit(1),NULL) `;
 C->Unit;
+} in
+
+let x = case b of {
+C -> ffi ` (puts("ERROR!!!"),exit(1),NULL) `;
+A -> ffi ` (puts("ERROR!!!"),exit(1),NULL) `;
+b->Unit;
+} in
+
+let x = case A of {
+C -> ffi ` (puts("ERROR!!!"),exit(1),NULL) `;
+A->Unit;
+b -> ffi ` (puts("ERROR!!!"),exit(1),NULL) `;
+} in
+let x = case b of {
+C -> ffi ` (puts("ERROR!!!"),exit(1),NULL) `;
+--b -> ffi ` (puts("ERROR!!!"),exit(1),NULL) `;
+b->Unit;
+A -> ffi ` (puts("ERROR!!!"),exit(1),NULL) `;
+--A->Unit;
 } in
 
 case Just Nil of {
