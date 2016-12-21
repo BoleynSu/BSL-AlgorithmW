@@ -185,6 +185,42 @@ struct TypeInfer {
     }
   }
 
+  void check(shared_ptr<Poly> t, shared_ptr<Mono> p,
+             set<shared_ptr<Mono>> &st) {
+    if (is_c(p)) {
+      if (is_fun(p)) {
+        assert(p->tau.size() == 2);
+        check(t, p->tau[0], st);
+        check(t, p->tau[1], st);
+      } else if (unit->data.count(p->D)) {
+        if (p->tau.size() != unit->data[p->D]->arg) {
+          cerr << "type error: in signature " << to_string(t) << endl
+               << "type `" << p->D << "` expects " << unit->data[p->D]->arg
+               << " arguments, but gets " << p->tau.size() << endl;
+          exit(EXIT_FAILURE);
+        }
+        for (size_t i = 0; i < p->tau.size(); i++) {
+          check(t, p->tau[i], st);
+        }
+      } else {
+        cerr << "type error: in signature " << to_string(t) << endl
+             << "`" << p->D << "` is not a type" << endl;
+        exit(EXIT_FAILURE);
+      }
+    } else {
+      st.erase(p);
+    }
+  }
+  void check(shared_ptr<Poly> t) {
+    auto p = t;
+    set<shared_ptr<Mono>> st;
+    while (!p->is_mono) {
+      st.insert(p->alpha);
+      p = p->sigma;
+    }
+    check(t, p->tau, st);
+  }
+
   shared_ptr<Poly> gen(shared_ptr<Mono> tau) {
     tau = find(tau);
     set<shared_ptr<Mono>> f;
@@ -371,6 +407,9 @@ struct TypeInfer {
   }
 
   void infer(shared_ptr<Expr> e) {
+    if (e->sig != nullptr) {
+      check(e->sig);
+    }
     switch (e->T) {
       case ExprType::VAR:
         if (context.has_rank2poly(e->x)) {
