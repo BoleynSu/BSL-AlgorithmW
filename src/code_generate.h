@@ -1,10 +1,7 @@
 #ifndef SU_BOLEYN_BSL_CODE_GENERATE_H
 #define SU_BOLEYN_BSL_CODE_GENERATE_H
 
-#include <stddef.h>
-#include <algorithm>
 #include <cassert>
-#include <cstdlib>
 #include <iostream>
 #include <limits>
 #include <map>
@@ -602,9 +599,7 @@ struct CodeGenerator {
         nout << ") {" << endl;
 
         assert(e->pes.size() >= 1);
-        auto t = get_mono(e->gadt);
-        assert(is_fun(t) && is_c(t->tau[0]) && unit->data.count(t->tau[0]->D));
-        auto da = unit->data[t->tau[0]->D];
+        auto da = unit->data[unit->cons[e->pes.begin()->first]->data_name];
         if (da->maxarg == 0) {
           if (da->to_ptr != numeric_limits<size_t>::max()) {
             assert(da->constructors.size());

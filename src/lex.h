@@ -4,9 +4,10 @@
 #include <cstdio>
 #include <cstdlib>
 #include <deque>
-#include <fstream>
 #include <iostream>
 #include <string>
+
+#include "ds/position.h"
 
 using namespace std;
 

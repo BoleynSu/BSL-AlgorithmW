@@ -1,8 +1,10 @@
 #ifndef SU_BOLEYN_BSL_PARSE_H
 #define SU_BOLEYN_BSL_PARSE_H
 
+#include <algorithm>
 #include <cstdlib>
 #include <iostream>
+#include <limits>
 #include <map>
 #include <memory>
 #include <set>

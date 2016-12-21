@@ -521,21 +521,22 @@ struct TypeInfer {
             fns[pes_.first] = gen(fn);
           }
         }
-        if (e->gadt != nullptr) {
-          auto t = get_mono(e->gadt);
+        auto gadt = e->gadt;
+        if (gadt != nullptr) {
+          auto t = get_mono(gadt);
           if (!(is_fun(t) && is_c(t->tau[0]) &&
                 unit->data.count(t->tau[0]->D))) {
             cerr << "type error: invaliad signature for case expression" << endl
-                 << to_string(e->gadt) << endl;
+                 << to_string(gadt) << endl;
             exit(EXIT_FAILURE);
           }
         } else {
-          auto gadt = new_forall_var();
+          auto gadt_ = new_forall_var();
           for (auto &fn : fns) {
-            unify(gadt, inst(fn.second), &cerr);
+            unify(gadt_, inst(fn.second), &cerr);
           }
-          e->gadt = gen(gadt);
-          auto t = get_mono(e->gadt);
+          gadt = gen(gadt_);
+          auto t = get_mono(gadt);
           assert(is_fun(t) && is_c(t->tau[0]) &&
                  unit->data.count(t->tau[0]->D));
         }
@@ -559,7 +560,7 @@ struct TypeInfer {
             auto fn = new_fun_var(), ret = new_forall_var();
             fn->tau.push_back(tau.second);
             fn->tau.push_back(ret);
-            if (unify(fn, inst(e->gadt), nullptr)) {
+            if (unify(fn, inst(gadt), nullptr)) {
               if (fns.count(c->name)) {
                 set<shared_ptr<Mono>> st;
                 unify(fn, inst(fns[c->name]), &cerr, &st);
@@ -570,7 +571,7 @@ struct TypeInfer {
               }
             } else {
               if (fns.count(c->name)) {
-                unify(inst(e->gadt), fn, &cerr);
+                unify(inst(gadt), fn, &cerr);
                 assert(false);
               }
             }
@@ -586,7 +587,7 @@ struct TypeInfer {
             auto fn = new_fun_var(), ret = new_forall_var();
             fn->tau.push_back(tau);
             fn->tau.push_back(ret);
-            if (unify(fn, inst(e->gadt), nullptr)) {
+            if (unify(fn, inst(gadt), nullptr)) {
               if (fns.count(c->name)) {
                 set<shared_ptr<Mono>> st;
                 unify(fn, inst(fns[c->name]), &cerr, &st);
@@ -597,7 +598,7 @@ struct TypeInfer {
               }
             } else {
               if (fns.count(c->name)) {
-                unify(inst(e->gadt), fn, &cerr);
+                unify(inst(gadt), fn, &cerr);
                 assert(false);
               }
             }
@@ -608,7 +609,7 @@ struct TypeInfer {
         auto fn = new_fun_var();
         fn->tau.push_back(context.get_type(e->e));
         fn->tau.push_back(context.get_type(e));
-        unify(fn, inst(e->gadt), &cerr);
+        unify(fn, inst(gadt), &cerr);
         break;
       }
       case ExprType::FFI: {
