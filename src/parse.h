@@ -50,7 +50,7 @@ struct Parser {
       if (data.length() > 78) {
         data = data.substr(0, 75) + "...";
       }
-      cerr << "parser: " << lexer.look_at(0).position << " "
+      cerr << "parser: " << to_string(lexer.look_at(0).position) << " "
            << "expect " << token_type << " but get "
            << lexer.look_at(0).token_type << endl
            << "`" << data << "`" << endl;
@@ -112,8 +112,8 @@ struct Parser {
         if (data.length() > 78) {
           data = data.substr(0, 75) + "...";
         }
-        cerr << "parser: " << t.position << " type variable names conflict"
-             << endl
+        cerr << "parser: " << to_string(t.position)
+             << " type variable names conflict" << endl
              << "`" << data << "`" << endl;
         exit(EXIT_FAILURE);
       }
@@ -134,8 +134,8 @@ struct Parser {
         if (data.length() > 78) {
           data = data.substr(0, 75) + "...";
         }
-        cerr << "parser: " << t.position << " type variable names conflict"
-             << endl
+        cerr << "parser: " << to_string(t.position)
+             << " type variable names conflict" << endl
              << "`" << data << "`" << endl;
         exit(EXIT_FAILURE);
       }
@@ -180,12 +180,13 @@ struct Parser {
   shared_ptr<Constructor> parse_constructor() {
     auto c = make_shared<Constructor>();
     expect(TokenType::IDENTIFIER);
-    if (unit->has_data(t.data)) {
+    if (unit->data.count(t.data)) {
       string data = t.data;
       if (data.length() > 78) {
         data = data.substr(0, 75) + "...";
       }
-      cerr << "parser: " << t.position << " constructor names conflict" << endl
+      cerr << "parser: " << to_string(t.position)
+           << " constructor names conflict" << endl
            << "`" << data << "`" << endl;
       exit(EXIT_FAILURE);
     }
@@ -198,7 +199,7 @@ struct Parser {
     } else {
       c->sig = r.first;
     }
-    unit->set_constructor(c->name, c);
+    unit->cons[c->name] = c;
     if (c->rank2sig != nullptr) {
       c->arg = 1;
       auto tm = get_mono(c->rank2sig);
@@ -220,12 +221,13 @@ struct Parser {
   shared_ptr<Data> parse_data() {
     auto d = make_shared<Data>();
     expect(TokenType::IDENTIFIER);
-    if (unit->has_data(t.data)) {
+    if (unit->data.count(t.data)) {
       string data = t.data;
       if (data.length() > 78) {
         data = data.substr(0, 75) + "...";
       }
-      cerr << "parser: " << t.position << " type names conflict" << endl
+      cerr << "parser: " << to_string(t.position) << " type names conflict"
+           << endl
            << "`" << data << "`" << endl;
       exit(EXIT_FAILURE);
     }
@@ -239,23 +241,30 @@ struct Parser {
         if (data.length() > 78) {
           data = data.substr(0, 75) + "...";
         }
-        cerr << "parser: " << t.position << " type variable names conflict"
-             << endl
+        cerr << "parser: " << to_string(t.position)
+             << " type variable names conflict" << endl
              << "`" << data << "`" << endl;
         exit(EXIT_FAILURE);
       }
       st.insert(t.data);
       d->arg++;
     }
+    d->maxarg = 0;
+    d->to_ptr = numeric_limits<size_t>::max();
     expect(TokenType::LEFT_BRACE);
     while (!accept(TokenType::RIGHT_BRACE)) {
-      d->constructors.push_back(parse_constructor());
-      d->constructors.back()->data_name = d->name;
+      auto c = parse_constructor();
+      c->data_name = d->name;
+      d->maxarg = max(d->maxarg, c->arg);
+      if (d->to_ptr == numeric_limits<size_t>::max() && c->arg == 0) {
+        d->to_ptr = d->constructors.size();
+      }
+      d->constructors.push_back(c);
       if (!match(TokenType::RIGHT_BRACE)) {
         expect(TokenType::SEMICOLON);
       }
     }
-    unit->set_data(d->name, d);
+    unit->data[d->name] = d;
     return d;
   }
 
@@ -292,7 +301,8 @@ struct Parser {
           if (data.length() > 78) {
             data = data.substr(0, 75) + "...";
           }
-          cerr << "parser: " << t.position << " variable names conflict" << endl
+          cerr << "parser: " << to_string(t.position)
+               << " variable names conflict" << endl
                << "`" << data << "`" << endl;
           exit(EXIT_FAILURE);
         }
@@ -374,7 +384,7 @@ struct Parser {
           if (data.length() > 78) {
             data = data.substr(0, 75) + "...";
           }
-          cerr << "parser: " << t.position << " error in ffi" << endl
+          cerr << "parser: " << to_string(t.position) << " error in ffi" << endl
                << "`" << data << "`" << endl;
           exit(EXIT_FAILURE);
         }
@@ -383,7 +393,7 @@ struct Parser {
         if (data.length() > 78) {
           data = data.substr(0, 75) + "...";
         }
-        cerr << "parser: " << t.position << " error in ffi" << endl
+        cerr << "parser: " << to_string(t.position) << " error in ffi" << endl
              << "`" << data << "`" << endl;
         exit(EXIT_FAILURE);
       }
@@ -412,12 +422,13 @@ struct Parser {
       string data_name;
       do {
         expect(TokenType::IDENTIFIER);
-        if (!unit->has_constructor(t.data)) {
+        if (!unit->cons.count(t.data)) {
           string data = t.data;
           if (data.length() > 78) {
             data = data.substr(0, 75) + "...";
           }
-          cerr << "parser: " << t.position << " constructor not found" << endl
+          cerr << "parser: " << to_string(t.position)
+               << " constructor not found" << endl
                << "`" << data << "`" << endl;
           exit(EXIT_FAILURE);
         }
@@ -426,14 +437,15 @@ struct Parser {
           if (data.length() > 78) {
             data = data.substr(0, 75) + "...";
           }
-          cerr << "parser: " << t.position << " constructors conflict" << endl
+          cerr << "parser: " << to_string(t.position)
+               << " constructors conflict" << endl
                << "`" << data << "`" << endl;
           exit(EXIT_FAILURE);
         }
         string cname = t.data;
         expr->pes[cname] = make_pair(vector<string>{}, nullptr);
         auto &pes = expr->pes[cname];
-        auto c = unit->get_constructor(cname);
+        auto c = unit->cons[cname];
         if (data_name.empty()) {
           data_name = c->data_name;
         } else if (data_name != c->data_name) {
@@ -441,8 +453,8 @@ struct Parser {
           if (data.length() > 78) {
             data = data.substr(0, 75) + "...";
           }
-          cerr << "parser: " << t.position << " constructor of " << data_name
-               << " expected, but found" << endl
+          cerr << "parser: " << to_string(t.position) << " constructor of "
+               << data_name << " expected, but found" << endl
                << "`" << data << "`" << endl;
           exit(EXIT_FAILURE);
         }
@@ -454,8 +466,8 @@ struct Parser {
             if (data.length() > 78) {
               data = data.substr(0, 75) + "...";
             }
-            cerr << "parser: " << t.position << " variable names conflict"
-                 << endl
+            cerr << "parser: " << to_string(t.position)
+                 << " variable names conflict" << endl
                  << "`" << data << "`" << endl;
             exit(EXIT_FAILURE);
           }

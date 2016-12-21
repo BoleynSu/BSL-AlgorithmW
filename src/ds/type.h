@@ -205,7 +205,7 @@ shared_ptr<Mono> inst(shared_ptr<Poly> sigma) {
 }
 
 shared_ptr<Mono> inst(shared_ptr<Poly> sigma,
-                      vector<shared_ptr<Mono>> &exists) {
+                      set<shared_ptr<Mono>> &exists) {
   map<shared_ptr<Mono>, shared_ptr<Mono>> m;
   for (auto e : exists) {
     m[e] = new_exists_var();
@@ -238,7 +238,7 @@ pair<shared_ptr<Poly>, shared_ptr<Mono>> rank2inst(
 }
 
 pair<shared_ptr<Poly>, shared_ptr<Mono>> rank2inst(
-    shared_ptr<Rank2Poly> sigma, vector<shared_ptr<Mono>> &exists) {
+    shared_ptr<Rank2Poly> sigma, set<shared_ptr<Mono>> &exists) {
   map<shared_ptr<Mono>, shared_ptr<Mono>> m;
   for (auto e : exists) {
     m[e] = new_exists_var();

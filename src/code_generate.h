@@ -254,19 +254,6 @@ struct CodeGenerator {
     for (auto dai : unit->data) {
       auto da = dai.second;
       if (da->constructors.size()) {
-        da->maxarg = 0;
-        for (size_t i = 0; i < da->constructors.size(); i++) {
-          auto c = da->constructors[i];
-          da->maxarg = max(da->maxarg, c->arg);
-        }
-        da->to_ptr = numeric_limits<size_t>::max();
-        for (size_t i = 0; i < da->constructors.size(); i++) {
-          auto c = da->constructors[i];
-          if (da->to_ptr == numeric_limits<size_t>::max() && c->arg == 0) {
-            da->to_ptr = i;
-          }
-        }
-
         out << "typedef enum {";
         bool first = true;
         if (da->to_ptr != numeric_limits<size_t>::max()) {
@@ -616,8 +603,8 @@ struct CodeGenerator {
 
         assert(e->pes.size() >= 1);
         auto t = get_mono(e->gadt);
-        assert(is_fun(t) && is_c(t->tau[0]) && unit->has_data(t->tau[0]->D));
-        auto da = unit->get_data(t->tau[0]->D);
+        assert(is_fun(t) && is_c(t->tau[0]) && unit->data.count(t->tau[0]->D));
+        auto da = unit->data[t->tau[0]->D];
         if (da->maxarg == 0) {
           if (da->to_ptr != numeric_limits<size_t>::max()) {
             assert(da->constructors.size());

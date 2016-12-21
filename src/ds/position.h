@@ -11,10 +11,11 @@ struct Position {
   size_t beginRow, beginColumn, endRow, endColumn;
 };
 
-ostream &operator<<(ostream &out, const Position &p) {
+string to_string(const Position &p) {
+  stringstream out;
   out << p.filename << ":[" << p.beginRow << "," << p.beginColumn << "-"
       << p.endRow << "," << p.endColumn << ")";
-  return out;
+  return out.str();
 }
 
 #endif

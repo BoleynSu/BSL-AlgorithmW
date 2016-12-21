@@ -13,7 +13,6 @@
 #include "lex.h"
 #include "optimize.h"
 #include "parse.h"
-#include "sig_check.h"
 #include "type_infer.h"
 
 using namespace std;
@@ -83,7 +82,6 @@ struct Compiler {
     Parser parser(lexer);
     auto unit = parser.parse();
 
-    SigChecker sig_checker(unit);
     TypeInfer type_infer(unit);
 
     ofstream csrc(source + ".c");
@@ -106,7 +104,7 @@ struct Compiler {
       }
 
       if (executable.empty()) {
-        if (int code = system("./a.out")) {
+        if (int code = system("time ./a.out")) {
           exit(code);
         }
       }

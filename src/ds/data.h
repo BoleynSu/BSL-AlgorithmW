@@ -20,7 +20,6 @@ struct Constructor {
 struct Data {
   string name;
   size_t arg;
-  vector<shared_ptr<Mono>> exists;
   vector<shared_ptr<Constructor>> constructors;
   size_t maxarg;
   size_t to_ptr;
