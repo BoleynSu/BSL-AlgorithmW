@@ -9,7 +9,8 @@
 #include <utility>
 #include <vector>
 
-#include "../lex.h"
+#include "ffi.h"
+#include "position.h"
 #include "type.h"
 
 using namespace std;
@@ -22,11 +23,10 @@ struct Expr {
   shared_ptr<Expr> e1, e2, e;
   vector<pair<string, shared_ptr<Expr>>> xes;
   map<string, pair<vector<string>, shared_ptr<Expr>>> pes;
-  string ffi;
-  shared_ptr<Mono> type;
+  shared_ptr<Ffi> ffi;
   shared_ptr<Poly> sig, gadt;
   Position pos;
-  set<string> fv;
+  shared_ptr<Mono> type;
 
   string to_string(size_t indent = 0, const string &indents = "") {
     stringstream s;
@@ -105,7 +105,7 @@ struct Expr {
         s << "}";
       } break;
       case ExprType::FFI:
-        s << "ffi `" << ffi << "`";
+        s << "ffi `" << ffi->source << "`";
         break;
     }
     return s.str();

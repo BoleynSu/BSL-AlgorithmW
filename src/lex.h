@@ -10,16 +10,6 @@
 
 using namespace std;
 
-struct Position {
-  string filename;
-  size_t beginRow, beginColumn, endRow, endColumn;
-};
-ostream &operator<<(ostream &out, const Position &p) {
-  out << p.filename << ":[" << p.beginRow << "," << p.beginColumn << "-"
-      << p.endRow << "," << p.endColumn << ")";
-  return out;
-}
-
 enum class TokenType {
   HASHBANG,
 

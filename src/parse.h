@@ -12,6 +12,8 @@
 
 #include "ds/data.h"
 #include "ds/expr.h"
+#include "ds/ffi.h"
+#include "ds/position.h"
 #include "ds/type.h"
 #include "ds/unit.h"
 #include "lex.h"
@@ -59,7 +61,7 @@ struct Parser {
   shared_ptr<Mono> parse_monotype(map<string, shared_ptr<Mono>> &m) {
     auto mo = parse_monotype_(m);
     if (accept(TokenType::RIGHTARROW)) {
-      auto t = new_const_var("->");
+      auto t = new_fun_var();
       t->tau.push_back(mo);
       t->tau.push_back(parse_monotype(m));
       mo = t;
@@ -80,7 +82,7 @@ struct Parser {
       mo = parse_monotype(m);
       expect(TokenType::RIGHT_PARENTHESIS);
     }
-    if (mo->is_const && mo->D != "->") {
+    if (is_c(mo) && !is_fun(mo)) {
       auto t1 = mo;
       while (match(TokenType::IDENTIFIER) ||
              match(TokenType::LEFT_PARENTHESIS)) {
@@ -164,7 +166,7 @@ struct Parser {
           expect(TokenType::RIGHT_PARENTHESIS);
         }
         if (accept(TokenType::RIGHTARROW)) {
-          auto t = new_const_var("->");
+          auto t = new_fun_var();
           t->tau.push_back(mo);
           t->tau.push_back(parse_monotype(m));
           mo = t;
@@ -200,14 +202,14 @@ struct Parser {
     if (c->rank2sig != nullptr) {
       c->arg = 1;
       auto tm = get_mono(c->rank2sig);
-      while (is_c(tm) && tm->D == "->") {
+      while (is_fun(tm)) {
         c->arg++;
         tm = tm->tau[1];
       }
     } else {
       auto tm = get_mono(c->sig);
       c->arg = 0;
-      while (is_c(tm) && tm->D == "->") {
+      while (is_fun(tm)) {
         c->arg++;
         tm = tm->tau[1];
       }
@@ -335,6 +337,59 @@ struct Parser {
     }
     return expr;
   }
+
+  shared_ptr<Ffi> parse_ffi() {
+    expect(TokenType::FFI);
+    auto ffi = make_shared<Ffi>();
+    stringstream s(t.data);
+    s.get();
+    s.get();
+    s.get();
+    string sep;
+    s >> sep;
+    size_t a = t.data.find(sep);
+    ffi->source =
+        t.data.substr(a + sep.size(), t.data.size() - (a + 2 * sep.size()));
+    size_t idx = 0;
+    while (idx < ffi->source.length() &&
+           (idx = ffi->source.find("$", idx)) != string::npos) {
+      if (++idx < ffi->source.length()) {
+        char c = ffi->source[idx];
+        if (('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z') || c == '_') {
+          string v;
+          v.push_back(c);
+          idx++;
+          while (idx < ffi->source.length()) {
+            c = ffi->source[idx];
+            if (!(('0' <= c && c <= '9') || ('A' <= c && c <= 'Z') ||
+                  ('a' <= c && c <= 'z') || c == '_' || c == '\'')) {
+              break;
+            }
+            v.push_back(c);
+            idx++;
+          }
+          ffi->fv.insert(v);
+        } else {
+          string data = t.data;
+          if (data.length() > 78) {
+            data = data.substr(0, 75) + "...";
+          }
+          cerr << "parser: " << t.position << " error in ffi" << endl
+               << "`" << data << "`" << endl;
+          exit(EXIT_FAILURE);
+        }
+      } else {
+        string data = t.data;
+        if (data.length() > 78) {
+          data = data.substr(0, 75) + "...";
+        }
+        cerr << "parser: " << t.position << " error in ffi" << endl
+             << "`" << data << "`" << endl;
+        exit(EXIT_FAILURE);
+      }
+    }
+    return ffi;
+  }
   shared_ptr<Expr> parse_expr__() {
     auto expr = make_shared<Expr>();
     if (accept(TokenType::IDENTIFIER)) {
@@ -414,17 +469,9 @@ struct Parser {
         }
       } while (!match(TokenType::RIGHT_BRACE));
       expect(TokenType::RIGHT_BRACE);
-    } else if (accept(TokenType::FFI)) {
+    } else if (match(TokenType::FFI)) {
       expr->T = ExprType::FFI;
-      stringstream s(t.data);
-      s.get();
-      s.get();
-      s.get();
-      string sep;
-      s >> sep;
-      size_t a = t.data.find(sep);
-      expr->ffi =
-          t.data.substr(a + sep.size(), t.data.size() - (a + 2 * sep.size()));
+      expr->ffi = parse_ffi();
     }
     return expr;
   }

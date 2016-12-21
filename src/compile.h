@@ -1,7 +1,6 @@
 #ifndef SU_BOLEYN_BSL_COMPILER_H
 #define SU_BOLEYN_BSL_COMPILER_H
 
-#include <libgen.h>
 #include <cstdlib>
 #include <iostream>
 #include <memory>
@@ -87,9 +86,8 @@ struct Compiler {
     SigChecker sig_checker(unit);
     TypeInfer type_infer(unit);
 
-    Optimizer optimizer;
     ofstream csrc(source + ".c");
-    CodeGenerator code_generator(unit, optimizer, csrc);
+    CodeGenerator code_generator(csrc, unit, make_shared<Optimizer>());
 
     if (!c_only) {
       stringstream gcc_cmd;

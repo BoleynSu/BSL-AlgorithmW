@@ -44,7 +44,7 @@ struct SigChecker {
   void check(shared_ptr<Constructor> c, shared_ptr<Mono> p,
              set<shared_ptr<Mono>> &st, bool m, bool r) {
     if (is_c(p)) {
-      if (p->D == "->") {
+      if (is_fun(p)) {
         assert(p->tau.size() == 2);
         check(c, p->tau[0], st, m && false, r);
         check(c, p->tau[1], st, m && true, r);

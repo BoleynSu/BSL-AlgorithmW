@@ -39,6 +39,7 @@ struct Rank2Poly {
 bool is_c(shared_ptr<Mono> x) { return x->is_const; }
 bool is_f(shared_ptr<Mono> x) { return (!x->is_const) && x->is_forall; }
 bool is_e(shared_ptr<Mono> x) { return (!x->is_const) && (!x->is_forall); }
+bool is_fun(shared_ptr<Mono> x) { return x->is_const && x->D == "->"; }
 
 shared_ptr<Mono> find(shared_ptr<Mono> x) {
   if (x->par != nullptr) {
@@ -54,7 +55,7 @@ string to_string(shared_ptr<Poly>);
 string to_string(shared_ptr<Mono> tau) {
   tau = find(tau);
   if (is_c(tau)) {
-    if (tau->D == "->") {
+    if (is_fun(tau)) {
       return "(" + to_string(tau->tau[0]) + ")->(" + to_string(tau->tau[1]) +
              ")";
     } else {
@@ -98,6 +99,13 @@ shared_ptr<Mono> new_const_var(const string &D) {
   auto t = make_shared<Mono>();
   t->is_const = true;
   t->D = D;
+  return t;
+}
+
+shared_ptr<Mono> new_fun_var() {
+  auto t = make_shared<Mono>();
+  t->is_const = true;
+  t->D = "->";
   return t;
 }
 

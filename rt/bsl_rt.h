@@ -1,7 +1,7 @@
 #include <stdlib.h>
 
 void *BSL_RT_MALLOC(size_t sz) {
-  static void *base=1 << 23, *top = 1 << 23;
+  static void *base = 1 << 23, *top = 1 << 23;
   if ((top -= sz) < base) {
     base = malloc(1 << 23);
     top = base + (1 << 23) - sz;
@@ -9,7 +9,7 @@ void *BSL_RT_MALLOC(size_t sz) {
   return top;
 }
 
-typedef void* BSL_RT_VAR_T;
+typedef void *BSL_RT_VAR_T;
 typedef BSL_RT_VAR_T (*BSL_RT_FUN_T)(BSL_RT_VAR_T, BSL_RT_VAR_T[]);
 typedef struct {
   BSL_RT_FUN_T fun;
