@@ -450,7 +450,7 @@ struct CodeGenerator {
             << ", " << fun(fn_idx) << ")";
       } break;
       case ExprType::LET: {
-        auto env = context.new_let_env(e->x, e);
+        auto env = context.new_let_env(e->x, e->e1);
         context.set_env(e->x, env);
         stringstream nnout;
         codegen_expr_(nnout, e->e2);
