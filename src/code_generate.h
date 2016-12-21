@@ -208,19 +208,19 @@ struct CodeGenerator {
     out << delcs.str() << endl;
 
     for (size_t i : cons) {
-      out << "static " << BSL_RT_VAR_T << " " << con(i) << "("
-          << BSL_RT_CLOSURE_T << " " << tmp() << ", " << BSL_RT_FUN_T << " fun";
+      out << "static " << BSL_RT_VAR_T << " " << con(i) << "(";
       for (size_t j = 0; j < i; j++) {
-        out << ", " << BSL_RT_VAR_T << " " << var(arg(j));
+        out << BSL_RT_VAR_T << " " << var(arg(j)) << ", ";
       }
-      out << ") {" << endl
-          << "  " << tmp() << "->fun"
-          << " = fun;" << endl;
+      out << BSL_RT_CLOSURE_T << " " << tmp() << ", " << BSL_RT_FUN_T << " fun"
+          << ") {" << endl;
       for (size_t j = 0; j < i; j++) {
         out << "  " << tmp() << "->env[" << j << "]"
             << " = " << var(arg(j)) << ";" << endl;
       }
-      out << "  return (" << BSL_RT_VAR_T << ") " << tmp() << ";" << endl
+      out << "  " << tmp() << "->fun"
+          << " = fun;" << endl
+          << "  return (" << BSL_RT_VAR_T << ") " << tmp() << ";" << endl
           << "}" << endl;
     }
 
@@ -296,12 +296,11 @@ struct CodeGenerator {
 
         for (size_t i = 0; i < da->constructors.size(); i++) {
           auto c = da->constructors[i];
-          out << BSL_RT_VAR_T << " " << con(c->name) << "(" << type(da->name)
-              << " *" << tmp();
+          out << BSL_RT_VAR_T << " " << con(c->name) << "(";
           for (size_t j = 0; j < c->arg; j++) {
-            out << ", " << BSL_RT_VAR_T << " " << var(arg(j));
+            out << BSL_RT_VAR_T << " " << var(arg(j)) << ", ";
           }
-          out << ") {" << endl;
+          out << type(da->name) << " *" << tmp() << ") {" << endl;
           if (da->maxarg == 0) {
             out << "  return " << tag(c->name) << ";" << endl;
           } else {
@@ -358,6 +357,9 @@ struct CodeGenerator {
           }
           stringstream s;
           s << " " << con(c->name) << "(";
+          for (size_t j = 0; j < c->arg; j++) {
+            s << "$" << arg(j) << ", ";
+          }
           if (da->maxarg == 0) {
             s << "NULL";
           } else {
@@ -379,10 +381,6 @@ struct CodeGenerator {
               s << "NULL";
             }
           }
-          for (size_t j = 0; j < c->arg; j++) {
-            s << ", "
-              << "$" << arg(j);
-          }
           s << ") ";
           cur->T = ExprType::FFI;
           cur->ffi = make_shared<Ffi>();
@@ -402,14 +400,12 @@ struct CodeGenerator {
     codegen_expr_(out, expr);
   }
 
-  void codegen_expr_(ostream &out, shared_ptr<Expr> e,
-                     map<string, size_t> env = map<string, size_t>()) {
+  void codegen_expr_(ostream &out, shared_ptr<Expr> e) {
     switch (e->T) {
       case ExprType::VAR: {
         out << var(e->x);
         context.add_fv(e, context.get_env(e->x));
-        break;
-      }
+      } break;
       case ExprType::APP: {
         out << BSL_RT_CALL << "(";
         codegen_expr_(out, e->e1);
@@ -444,14 +440,14 @@ struct CodeGenerator {
         nout << "  return " << nnout.str() << ";" << endl << "}" << endl;
 
         cons.insert(fv_cnt);
-        out << con(fv_cnt) << "(" << BSL_RT_MALLOC << "("
+        out << con(fv_cnt) << "(";
+        for (auto &fv : context.get_fv(e)) {
+          out << var(fv->x) << ", ";
+        }
+        out << BSL_RT_MALLOC << "("
             << "sizeof(" << BSL_RT_FUN_T << ") + " << fv_cnt << " * sizeof("
             << BSL_RT_VAR_T << "))"
-            << ", " << fun(fn_idx);
-        for (auto &fv : context.get_fv(e)) {
-          out << ", " << var(fv->x);
-        }
-        out << ")";
+            << ", " << fun(fn_idx) << ")";
       } break;
       case ExprType::LET: {
         auto env = context.new_let_env(e->x, e);
@@ -465,20 +461,19 @@ struct CodeGenerator {
         size_t blk_idx = blks.size();
         blks.push_back(make_shared<stringstream>());
         auto &nout = *blks.back();
-        nout << BSL_RT_VAR_T << " " << blk(blk_idx) << "(" << BSL_RT_VAR_T
-             << " " << var(e->x);
+        nout << BSL_RT_VAR_T << " " << blk(blk_idx) << "(";
         for (auto &fv : context.get_fv(e)) {
-          nout << ", " << BSL_RT_VAR_T << " " << var(fv->x);
+          nout << BSL_RT_VAR_T << " " << var(fv->x) << ", ";
         }
-        nout << ") {" << endl
+        nout << BSL_RT_VAR_T << " " << var(e->x) << ") {" << endl
              << "  return " << nnout.str() << ";" << endl
              << "}" << endl;
 
         out << blk(blk_idx) << "(";
-        codegen_expr_(out, e->e1);
         for (auto &fv : context.get_fv(e)) {
-          out << ", " << var(fv->x);
+          out << var(fv->x) << ", ";
         }
+        codegen_expr_(out, e->e1);
         out << ")";
         context.add_fv(e, e->e1);
       } break;
@@ -515,11 +510,11 @@ struct CodeGenerator {
           nout << "  return " << nnnout.str() << ";" << endl << "}" << endl;
 
           cons.insert(fv_cnt);
-          nnout << con(fv_cnt) << "(" << var(xe.first) << ", " << fun(fn_idx);
+          nnout << con(fv_cnt) << "(";
           for (auto &fv : context.get_fv(xe.second)) {
-            nnout << ", " << var(fv->x);
+            nnout << var(fv->x) << ", ";
           }
-          nnout << ")";
+          nnout << var(xe.first) << ", " << fun(fn_idx) << ")";
         }
 
         stringstream nnout;
@@ -541,7 +536,10 @@ struct CodeGenerator {
         {
           bool first = true;
           for (auto &fv : context.get_fv(e)) {
-            nout << (first ? "" : ", ") << BSL_RT_VAR_T << " " << var(fv->x);
+            if (!first) {
+              nout << ", ";
+            }
+            nout << BSL_RT_VAR_T << " " << var(fv->x);
             first = false;
           }
         }
@@ -591,12 +589,11 @@ struct CodeGenerator {
         size_t blk_idx = blks.size();
         blks.push_back(make_shared<stringstream>());
         auto &nout = *blks.back();
-        nout << BSL_RT_VAR_T << " " << blk(blk_idx) << "(" << BSL_RT_VAR_T
-             << " " << tmp();
+        nout << BSL_RT_VAR_T << " " << blk(blk_idx) << "(";
         for (auto &fv : context.get_fv(e)) {
-          nout << ", " << BSL_RT_VAR_T << " " << var(fv->x);
+          nout << BSL_RT_VAR_T << " " << var(fv->x) << ", ";
         }
-        nout << ") {" << endl;
+        nout << BSL_RT_VAR_T << " " << tmp() << ") {" << endl;
 
         assert(e->pes.size() >= 1);
         auto da = unit->data[unit->cons[e->pes.begin()->first]->data_name];
@@ -714,10 +711,10 @@ struct CodeGenerator {
         nout << "}" << endl;
 
         out << blk(blk_idx) << "(";
-        codegen_expr_(out, e->e);
         for (auto &fv : context.get_fv(e)) {
-          out << ", " << var(fv->x);
+          out << var(fv->x) << ", ";
         }
+        codegen_expr_(out, e->e);
         out << ")";
         context.add_fv(e, e->e);
       } break;
