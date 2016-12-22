@@ -294,11 +294,10 @@ struct Parser {
       expr->e2 = parse_expr();
     } else if (accept(TokenType::REC)) {
       expr->T = ExprType::REC;
-      set<string> st;
       do {
         shared_ptr<Poly> s;
         expect(TokenType::IDENTIFIER);
-        if (st.count(t.data)) {
+        if (expr->xes.count(t.data)) {
           string data = t.data;
           if (data.length() > 78) {
             data = data.substr(0, 75) + "...";
@@ -308,15 +307,14 @@ struct Parser {
                << "`" << data << "`" << endl;
           exit(EXIT_FAILURE);
         }
-        st.insert(t.data);
-        expr->xes.push_back(make_pair(t.data, nullptr));
+        string rname = t.data;
         if (accept(TokenType::COLON)) {
           map<string, shared_ptr<Mono>> m;
           s = parse_polytype(m);
         }
         expect(TokenType::EQUAL);
-        expr->xes.back().second = parse_expr();
-        expr->xes.back().second->sig = s;
+        expr->xes[rname] = parse_expr();
+        expr->xes[rname]->sig = s;
       } while (accept(TokenType::AND));
       expect(TokenType::IN);
       expr->e = parse_expr();

@@ -21,7 +21,7 @@ struct Expr {
   ExprType T;
   string x;
   shared_ptr<Expr> e1, e2, e;
-  vector<pair<string, shared_ptr<Expr>>> xes;
+  map<string, shared_ptr<Expr>> xes;
   map<string, pair<vector<string>, shared_ptr<Expr>>> pes;
   shared_ptr<Ffi> ffi;
   shared_ptr<Poly> sig, gadt;
