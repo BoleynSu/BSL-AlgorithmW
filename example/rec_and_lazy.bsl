@@ -65,7 +65,7 @@ rec runIO = \x -> case x of {
 
 let force = \x -> case x of {
   Val v -> v;
-  Fn f -> let v = ffi ` BSL_RT_CALL($f, $Unit) ` in
+  Fn f -> let v = f Unit in
           let _ = ffi ` BSL_CON_Val($v, $x) ` in v
 } in
 
