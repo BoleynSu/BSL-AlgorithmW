@@ -64,18 +64,18 @@ rec concat = \a -> \b -> case a of {
   Nil -> b;
   Cons x xs -> Cons x (concat xs b)
 } in
-rec filter = \list -> \f -> case list of {
+rec filter = \f -> \list -> case list of {
   Nil -> Nil;
   Cons x xs -> case f x of {
-    True -> Cons x (filter xs f);
-    False -> filter xs f
+    True -> Cons x (filter f xs);
+    False -> filter f xs
   }
 } in
 let sort = \less ->
   rec sortLess = \list -> case list of {
     Nil -> Nil;
-    Cons x xs -> concat (sortLess (filter xs (\y -> not (less x y))))
-                 (Cons x (sortLess (filter xs (less x) )))
+    Cons x xs -> concat (sortLess (filter (\y -> not (less x y)) xs))
+                 (Cons x (sortLess (filter (less x) xs)))
   } in sortLess
 in
 

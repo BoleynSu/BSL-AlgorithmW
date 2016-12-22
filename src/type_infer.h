@@ -451,9 +451,12 @@ struct TypeInfer {
           if (is_fun(ty)) {
             if (is_p(ty->tau[0])) {
               context.set_env(e->x, ty->tau[0]->sigma);
-              ty_ = infer(e->e, ty->tau[1]->sigma);
             } else {
               context.set_env(e->x, new_poly(ty->tau[0]));
+            }
+            if (is_p(ty->tau[1])) {
+              ty_ = infer(e->e, ty->tau[1]->sigma);
+            } else {
               ty_ = infer(e->e, new_poly(ty->tau[1]));
             }
             context.unset_env(e->x);
@@ -502,15 +505,18 @@ struct TypeInfer {
           infer(xe.second, nullptr);
         }
         for (auto &xe : e->xes) {
-          auto t = find(tys[xe.first]);
+          auto t = xe.second->sig != nullptr ? inst(xe.second->sig)
+                                             : find(tys[xe.first]);
           if (xe.second->T != ExprType::ABS) {
             cerr << "type error: rec of this type is not supported" << endl;
             exit(EXIT_FAILURE);
           }
-          cerr << "//" << xe.first << " : "
-               << (xe.second->sig != nullptr ? to_string(xe.second->sig)
-                                             : to_string(tys[xe.first]))
-               << endl;
+          //          cerr << "//" << xe.first << " : "
+          //               << (xe.second->sig != nullptr ?
+          //               to_string(xe.second->sig)
+          //                                             :
+          //                                             to_string(tys[xe.first]))
+          //               << endl;
         }
         for (auto &xe : e->xes) {
           context.unset_env(xe.first);
@@ -554,7 +560,7 @@ struct TypeInfer {
               context.set_env(pes.first[i], taus[i]->sigma);
             }
           }
-          tys[pes_.first] = infer(pes.second, sig);
+          tys[pes_.first] = infer(pes.second, nullptr);
           for (size_t i = 0; i < c->arg; i++) {
             context.unset_env(pes.first[i]);
           }
@@ -688,7 +694,6 @@ struct TypeInfer {
     if (sig != nullptr) {
       set<shared_ptr<Mono>> st;
       if (!unify(inst_get_set(sig, st), ty, &cerr, &st)) {
-        cerr << to_string(sig) << " " << to_string(ty) << endl;
         string data = to_string(e, 0, "  ");
         if (data.length() > 78) {
           data = data.substr(0, 75) + "...";
