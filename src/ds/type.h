@@ -169,6 +169,13 @@ shared_ptr<Mono> get_mono(shared_ptr<Rank2Poly> t) {
   return t->mono;
 }
 
+shared_ptr<Mono> get_ret(shared_ptr<Mono> t) {
+  while (is_fun(t)) {
+    t = t->tau[1];
+  }
+  return t;
+}
+
 shared_ptr<Mono> inst(shared_ptr<Mono> tau,
                       map<shared_ptr<Mono>, shared_ptr<Mono>> &m) {
   tau = find(tau);
@@ -204,8 +211,7 @@ shared_ptr<Mono> inst(shared_ptr<Poly> sigma) {
   return inst(sigma, m);
 }
 
-shared_ptr<Mono> inst(shared_ptr<Poly> sigma,
-                      set<shared_ptr<Mono>> &exists) {
+shared_ptr<Mono> inst(shared_ptr<Poly> sigma, set<shared_ptr<Mono>> &exists) {
   map<shared_ptr<Mono>, shared_ptr<Mono>> m;
   for (auto e : exists) {
     m[e] = new_exists_var();

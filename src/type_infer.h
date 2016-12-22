@@ -67,32 +67,33 @@ struct TypeInfer {
         c.erase(key);
       }
     }
-    //    shared_ptr<Mono> get_type(shared_ptr<Expr> e) { return type[e]; }
-    //    void set_type(shared_ptr<Expr> e, shared_ptr<Mono> t) { type[e] = t; }
     void add_exists(string c, shared_ptr<Mono> t) { exists[c].insert(t); }
     set<shared_ptr<Mono>> &get_exists(string c) { return exists[c]; }
   } context;
   shared_ptr<Unit> unit;
   TypeInfer(shared_ptr<Unit> unit) : unit(unit) {
-    for (auto &c : unit->cons) {
-      if (c.second->rank2sig != nullptr) {
-        auto p = c.second->rank2sig;
-        set<shared_ptr<Mono>> st;
-        while (p->is_forall) {
-          st.insert(p->alpha);
-          p = p->sigma;
+    for (auto dai : unit->data) {
+      auto da = dai.second;
+      for (auto &c : da->constructors) {
+        if (c->rank2sig != nullptr) {
+          auto p = c->rank2sig;
+          set<shared_ptr<Mono>> st;
+          while (p->is_forall) {
+            st.insert(p->alpha);
+            p = p->sigma;
+          }
+          check(da, c, get_mono(p->poly), st, false, false);
+          auto mo = p->mono;
+          check(da, c, p->mono, st, true, false);
+        } else {
+          auto p = c->sig;
+          set<shared_ptr<Mono>> st;
+          while (!p->is_mono) {
+            st.insert(p->alpha);
+            p = p->sigma;
+          }
+          check(da, c, p->tau, st, true, false);
         }
-        check(c.second, get_mono(p->poly), st, false, false);
-        auto mo = p->mono;
-        check(c.second, p->mono, st, true, false);
-      } else {
-        auto p = c.second->sig;
-        set<shared_ptr<Mono>> st;
-        while (!p->is_mono) {
-          st.insert(p->alpha);
-          p = p->sigma;
-        }
-        check(c.second, p->tau, st, true, false);
       }
     }
     for (auto dai : unit->data) {
@@ -117,23 +118,23 @@ struct TypeInfer {
       }
     }
   }
-  void check(shared_ptr<Constructor> c, shared_ptr<Mono> p,
+  void check(shared_ptr<Data> da, shared_ptr<Constructor> c, shared_ptr<Mono> p,
              set<shared_ptr<Mono>> &st, bool m, bool r) {
     if (is_c(p)) {
       if (is_fun(p)) {
         assert(p->tau.size() == 2);
-        check(c, p->tau[0], st, m && false, r);
-        check(c, p->tau[1], st, m && true, r);
+        check(da, c, p->tau[0], st, m && false, r);
+        check(da, c, p->tau[1], st, m && true, r);
       } else {
         if (unit->data.count(p->D)) {
           if (m) {
-            if (p->D != c->data_name) {
+            if (p->D != da->name) {
               cerr << "type error: in constructor " << c->name << ":"
                    << (c->rank2sig != nullptr ? to_string(c->rank2sig)
                                               : to_string(c->sig))
                    << endl
-                   << "return type is `" << p->D << "` instead of `"
-                   << c->data_name << "`" << endl;
+                   << "return type is `" << p->D << "` instead of `" << da->name
+                   << "`" << endl;
               exit(EXIT_FAILURE);
             }
           }
@@ -147,7 +148,7 @@ struct TypeInfer {
             exit(EXIT_FAILURE);
           }
           for (size_t i = 0; i < p->tau.size(); i++) {
-            check(c, p->tau[i], st, false, m || r);
+            check(da, c, p->tau[i], st, false, m || r);
           }
           if (m) {
             for (auto t : st) {
@@ -170,7 +171,7 @@ struct TypeInfer {
              << (c->rank2sig != nullptr ? to_string(c->rank2sig)
                                         : to_string(c->sig))
              << endl
-             << "return type is a type variable instead of " << c->data_name
+             << "return type is a type variable instead of " << da->name
              << endl;
         exit(EXIT_FAILURE);
       }
@@ -523,7 +524,7 @@ struct TypeInfer {
               auto t1 = new_fun_var(), t2 = new_forall_var();
               t1->tau.push_back(taus[i]);
               t1->tau.push_back(t2);
-              unify(t1, tau.second, &cerr);
+              unify(t1, tau.second, &cerr);  // unify?
               tau.second = t2;
             }
             auto fn = new_fun_var();
@@ -546,7 +547,7 @@ struct TypeInfer {
               auto t1 = new_fun_var(), t2 = new_forall_var();
               t1->tau.push_back(taus[i]);
               t1->tau.push_back(t2);
-              unify(t1, tau, &cerr);
+              unify(t1, tau, &cerr);  // unify?
               tau = t2;
             }
             auto fn = new_fun_var();
@@ -574,7 +575,7 @@ struct TypeInfer {
         } else {
           auto gadt_ = new_forall_var();
           for (auto &fn : fns) {
-            unify(gadt_, inst(fn.second), &cerr);
+            unify(gadt_, inst(fn.second), &cerr);  // unify?
           }
           gadt = gen(gadt_);
           auto t = get_mono(gadt);
@@ -595,16 +596,16 @@ struct TypeInfer {
               auto t1 = new_fun_var(), t2 = new_forall_var();
               t1->tau.push_back(new_forall_var());
               t1->tau.push_back(t2);
-              unify(t1, tau.second, &cerr);
+              unify(t1, tau.second, &cerr);  // unify?
               tau.second = t2;
             }
             auto fn = new_fun_var(), ret = new_forall_var();
             fn->tau.push_back(tau.second);
             fn->tau.push_back(ret);
-            if (unify(fn, inst(gadt), nullptr)) {
+            if (unify(fn, inst(gadt), nullptr)) {  // unify?
               if (fns.count(c->name)) {
                 set<shared_ptr<Mono>> st;
-                unify(fn, inst(fns[c->name]), &cerr, &st);
+                unify(fn, inst(fns[c->name]), &cerr, &st);  // unify?
               } else {
                 cerr << "type error: non-exhaustive patterns `" << c->name
                      << "`" << endl;
@@ -612,7 +613,7 @@ struct TypeInfer {
               }
             } else {
               if (fns.count(c->name)) {
-                unify(inst(gadt), fn, &cerr);
+                unify(inst(gadt), fn, &cerr);  // unify?
                 assert(false);
               }
             }
@@ -622,16 +623,16 @@ struct TypeInfer {
               auto t1 = new_fun_var(), t2 = new_forall_var();
               t1->tau.push_back(new_forall_var());
               t1->tau.push_back(t2);
-              unify(t1, tau, &cerr);
+              unify(t1, tau, &cerr);  // unify?
               tau = t2;
             }
             auto fn = new_fun_var(), ret = new_forall_var();
             fn->tau.push_back(tau);
             fn->tau.push_back(ret);
-            if (unify(fn, inst(gadt), nullptr)) {
+            if (unify(fn, inst(gadt), nullptr)) {  // unify?
               if (fns.count(c->name)) {
                 set<shared_ptr<Mono>> st;
-                unify(fn, inst(fns[c->name]), &cerr, &st);
+                unify(fn, inst(fns[c->name]), &cerr, &st);  // unify?
               } else {
                 cerr << "type error: non-exhaustive patterns `" << c->name
                      << "`" << endl;
@@ -639,7 +640,7 @@ struct TypeInfer {
               }
             } else {
               if (fns.count(c->name)) {
-                unify(inst(gadt), fn, &cerr);
+                unify(inst(gadt), fn, &cerr);  // unify?
                 assert(false);
               }
             }

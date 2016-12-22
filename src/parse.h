@@ -251,16 +251,10 @@ struct Parser {
       st.insert(t.data);
       d->arg++;
     }
-    d->maxarg = 0;
-    d->to_ptr = numeric_limits<size_t>::max();
     expect(TokenType::LEFT_BRACE);
     while (!accept(TokenType::RIGHT_BRACE)) {
       auto c = parse_constructor();
       c->data_name = d->name;
-      d->maxarg = max(d->maxarg, c->arg);
-      if (d->to_ptr == numeric_limits<size_t>::max() && c->arg == 0) {
-        d->to_ptr = d->constructors.size();
-      }
       d->constructors.push_back(c);
       if (!match(TokenType::RIGHT_BRACE)) {
         expect(TokenType::SEMICOLON);

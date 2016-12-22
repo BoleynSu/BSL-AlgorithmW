@@ -42,6 +42,7 @@ struct CodeGenerator {
   vector<shared_ptr<stringstream>> blks;
   vector<shared_ptr<stringstream>> fns;
   set<size_t> cons;
+  map<string, size_t> maxarg, to_ptr;
 
   CodeGenerator(ostream &out, shared_ptr<Unit> unit,
                 shared_ptr<Optimizer> optimizer)
@@ -182,19 +183,29 @@ struct CodeGenerator {
   }
 
   void codegen_data(ostream &out) {
-    for (auto dai : unit->data) {
+    for (auto &dai : unit->data) {
+      auto da = dai.second;
+      for (size_t i = 0; i < da->constructors.size(); i++) {
+        auto c = da->constructors[i];
+        maxarg[da->name] = max(maxarg[da->name], c->arg);
+        if (!to_ptr.count(da->name) && c->arg == 0) {
+          to_ptr[da->name] = i;
+        }
+      }
+    }
+    for (auto &dai : unit->data) {
       auto da = dai.second;
       if (da->constructors.size()) {
         out << "typedef enum {";
         bool first = true;
-        if (da->to_ptr != numeric_limits<size_t>::max()) {
-          auto c = da->constructors[da->to_ptr];
+        if (to_ptr.count(da->name)) {
+          auto c = da->constructors[to_ptr[da->name]];
           out << (first ? " " : ", ") << tag(c->name);
           first = false;
         }
         for (size_t i = 0; i < da->constructors.size(); i++) {
           auto c = da->constructors[i];
-          if (i != da->to_ptr) {
+          if (!to_ptr.count(da->name) || i != to_ptr[da->name]) {
             out << (first ? " " : ", ") << tag(c->name);
             first = false;
           }
@@ -202,19 +213,17 @@ struct CodeGenerator {
         out << " } " << tag_type(da->name) << ";" << endl;
 
         out << "typedef struct {" << endl;
-        if (da->maxarg == 0) {
+        if (maxarg[da->name] == 0) {
         } else {
-          if ((da->to_ptr == numeric_limits<size_t>::max() &&
-               da->constructors.size() > 1) ||
-              (da->to_ptr != numeric_limits<size_t>::max() &&
-               da->constructors.size() > 2)) {
+          if ((!to_ptr.count(da->name) && da->constructors.size() > 1) ||
+              (to_ptr.count(da->name) && da->constructors.size() > 2)) {
             out << tag_type(da->name) << " tag;" << endl;
-            for (size_t i = 0; i < da->maxarg; i++) {
+            for (size_t i = 0; i < maxarg[da->name]; i++) {
               out << "  " << BSL_RT_VAR_T << " " << arg(i) << ";" << endl;
             }
           } else {
             for (size_t i = 0; i < da->constructors.size(); i++) {
-              if (i != da->to_ptr) {
+              if (!to_ptr.count(da->name) || i != to_ptr[da->name]) {
                 auto c = da->constructors[i];
                 if (c->arg == 1 && da->constructors.size() == 1) {
                 } else {
@@ -235,14 +244,12 @@ struct CodeGenerator {
             out << BSL_RT_VAR_T << " " << var(arg(j)) << ", ";
           }
           out << type(da->name) << " *" << tmp() << ") {" << endl;
-          if (da->maxarg == 0) {
+          if (maxarg[da->name] == 0) {
             out << "  return " << tag(c->name) << ";" << endl;
           } else {
-            if (i != da->to_ptr) {
-              if ((da->to_ptr == numeric_limits<size_t>::max() &&
-                   da->constructors.size() > 1) ||
-                  (da->to_ptr != numeric_limits<size_t>::max() &&
-                   da->constructors.size() > 2)) {
+            if (!to_ptr.count(da->name) || i != to_ptr[da->name]) {
+              if ((!to_ptr.count(da->name) && da->constructors.size() > 1) ||
+                  (to_ptr.count(da->name) && da->constructors.size() > 2)) {
                 out << "  " << tmp() << "->tag = " << tag(c->name) << ";"
                     << endl;
                 for (size_t j = 0; j < c->arg; j++) {
@@ -294,21 +301,18 @@ struct CodeGenerator {
           for (size_t j = 0; j < c->arg; j++) {
             s << "$" << arg(j) << ", ";
           }
-          if (da->maxarg == 0) {
+          if (maxarg[da->name] == 0) {
             s << "NULL";
           } else {
-            if (i != da->to_ptr) {
-              if ((da->to_ptr == numeric_limits<size_t>::max() &&
-                   da->constructors.size() > 1) ||
-                  (da->to_ptr != numeric_limits<size_t>::max() &&
-                   da->constructors.size() > 2)) {
-                s << BSL_RT_MALLOC << "(sizeof(" << type(c->data_name) << "))";
+            if (!to_ptr.count(da->name) || i != to_ptr[da->name]) {
+              if ((!to_ptr.count(da->name) && da->constructors.size() > 1) ||
+                  (to_ptr.count(da->name) && da->constructors.size() > 2)) {
+                s << BSL_RT_MALLOC << "(sizeof(" << type(da->name) << "))";
               } else {
                 if (c->arg == 1 && da->constructors.size() == 1) {
                   s << "NULL";
                 } else {
-                  s << BSL_RT_MALLOC << "(sizeof(" << type(c->data_name)
-                    << "))";
+                  s << BSL_RT_MALLOC << "(sizeof(" << type(da->name) << "))";
                 }
               }
             } else {
@@ -504,63 +508,39 @@ struct CodeGenerator {
         }
         nout << BSL_RT_VAR_T << " " << tmp() << ") {" << endl;
 
-        assert(e->pes.size() >= 1);
+        assert(e->pes.size());
         auto da = unit->data[unit->cons[e->pes.begin()->first]->data_name];
-        if (da->maxarg == 0) {
-          if (da->to_ptr != numeric_limits<size_t>::max()) {
-            assert(da->constructors.size());
-            if (e->pes.count(da->constructors[da->to_ptr]->name)) {
-              auto &pes =
-                  e->pes.find(da->constructors[da->to_ptr]->name)->second;
-              nout << "  if (" << tmp() << " == NULL) {" << endl;
-              for (size_t i = 0; i < pes.first.size(); i++) {
-                nout << "    " << BSL_RT_VAR_T << " " << var(pes.first[i])
-                     << " = ((" << type(da->name) << "*)(" << tmp() << "))->"
-                     << arg(i) << ";" << endl;
-              }
-              nout << "    return "
-                   << nouts[da->constructors[da->to_ptr]->name].str() << ";"
-                   << endl
-                   << "  }" << endl;
-            }
-          }
-          if ((da->to_ptr == numeric_limits<size_t>::max() &&
-               da->constructors.size() > 1) ||
-              (da->to_ptr != numeric_limits<size_t>::max() &&
-               da->constructors.size() > 2)) {
-            nout << "  switch ("
-                 << "(" << tag_type(da->name) << ") " << tmp() << ") {" << endl;
-            for (size_t i = 0; i < da->constructors.size(); i++) {
-              auto c = da->constructors[i];
-              if (i != da->to_ptr && e->pes.count(c->name)) {
-                auto &pes = e->pes.find(c->name)->second;
+        if (maxarg[da->name] == 0) {
+          nout << "  switch ("
+               << "(" << tag_type(da->name) << ") " << tmp() << ") {" << endl;
+          bool first = true;
+          for (size_t i = 0; i < da->constructors.size(); i++) {
+            auto c = da->constructors[i];
+            if (e->pes.count(c->name)) {
+              auto &pes = e->pes.find(c->name)->second;
+              if (first) {
+                nout << "    default: {" << endl;
+              } else {
                 nout << "    case " << tag(c->name) << ": {" << endl;
-                for (size_t i = 0; i < pes.first.size(); i++) {
-                  nout << "      " << BSL_RT_VAR_T << " " << var(pes.first[i])
-                       << " = ((" << type(da->name) << "*)(" << tmp() << "))->"
-                       << arg(i) << ";" << endl;
-                }
-                nout << "      return "
-                     << nouts[da->constructors[i]->name].str() << ";" << endl
-                     << "    }" << endl;
               }
-            }
-            nout << "  }" << endl;
-          } else {
-            for (size_t i = 0; i < da->constructors.size(); i++) {
-              auto c = da->constructors[i];
-              if (i != da->to_ptr && e->pes.count(c->name)) {
-                nout << "  return " << nouts[da->constructors[i]->name].str()
-                     << ";" << endl;
+              first = false;
+              for (size_t i = 0; i < pes.first.size(); i++) {
+                nout << "      " << BSL_RT_VAR_T << " " << var(pes.first[i])
+                     << " = ((" << type(da->name) << "*)(" << tmp() << "))->"
+                     << arg(i) << ";" << endl;
               }
+              nout << "      return " << nouts[da->constructors[i]->name].str()
+                   << ";" << endl
+                   << "    }" << endl;
             }
           }
+          nout << "  }" << endl;
         } else {
-          if (da->to_ptr != numeric_limits<size_t>::max()) {
+          if (to_ptr.count(da->name)) {
             assert(da->constructors.size());
-            if (e->pes.count(da->constructors[da->to_ptr]->name)) {
+            if (e->pes.count(da->constructors[to_ptr[da->name]]->name)) {
               auto &pes =
-                  e->pes.find(da->constructors[da->to_ptr]->name)->second;
+                  e->pes.find(da->constructors[to_ptr[da->name]]->name)->second;
               nout << "  if (" << tmp() << " == NULL) {" << endl;
               for (size_t i = 0; i < pes.first.size(); i++) {
                 nout << "    " << BSL_RT_VAR_T << " " << var(pes.first[i])
@@ -568,23 +548,28 @@ struct CodeGenerator {
                      << arg(i) << ";" << endl;
               }
               nout << "    return "
-                   << nouts[da->constructors[da->to_ptr]->name].str() << ";"
-                   << endl
+                   << nouts[da->constructors[to_ptr[da->name]]->name].str()
+                   << ";" << endl
                    << "  }" << endl;
             }
           }
-          if ((da->to_ptr == numeric_limits<size_t>::max() &&
-               da->constructors.size() > 1) ||
-              (da->to_ptr != numeric_limits<size_t>::max() &&
-               da->constructors.size() > 2)) {
+          if ((!to_ptr.count(da->name) && da->constructors.size() > 1) ||
+              (to_ptr.count(da->name) && da->constructors.size() > 2)) {
             nout << "  switch ("
                  << "((" << type(da->name) << "*) " << tmp() << ")->tag"
                  << ") {" << endl;
+            bool first = true;
             for (size_t i = 0; i < da->constructors.size(); i++) {
               auto c = da->constructors[i];
-              if (i != da->to_ptr && e->pes.count(c->name)) {
+              if ((!to_ptr.count(da->name) || i != to_ptr[da->name]) &&
+                  e->pes.count(c->name)) {
                 auto &pes = e->pes.find(c->name)->second;
-                nout << "    case " << tag(c->name) << ": {" << endl;
+                if (first) {
+                  nout << "    default: {" << endl;
+                } else {
+                  nout << "    case " << tag(c->name) << ": {" << endl;
+                }
+                first = false;
                 for (size_t i = 0; i < pes.first.size(); i++) {
                   nout << "      " << BSL_RT_VAR_T << " " << var(pes.first[i])
                        << " = ((" << type(da->name) << "*)(" << tmp() << "))->"
@@ -599,7 +584,8 @@ struct CodeGenerator {
           } else {
             for (size_t i = 0; i < da->constructors.size(); i++) {
               auto c = da->constructors[i];
-              if (i != da->to_ptr && e->pes.count(c->name)) {
+              if ((!to_ptr.count(da->name) || i != to_ptr[da->name]) &&
+                  e->pes.count(c->name)) {
                 auto &pes = e->pes.find(c->name)->second;
                 if (c->arg == 1 && da->constructors.size() == 1) {
                   nout << "  " << BSL_RT_VAR_T << " " << var(pes.first.front())
