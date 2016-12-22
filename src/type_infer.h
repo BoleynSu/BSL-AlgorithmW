@@ -517,21 +517,17 @@ struct TypeInfer {
           assert(c->arg == pes.first.size());
           if (c->rank2sig != nullptr) {
             auto tau = rank2inst(c->rank2sig, context.get_exists(c->name));
-            vector<shared_ptr<Mono>> taus;
-            taus.push_back(nullptr);
-            for (size_t i = 1; i < pes.first.size(); i++) {
-              taus.push_back(new_forall_var());
-              auto t1 = new_fun_var(), t2 = new_forall_var();
-              t1->tau.push_back(taus[i]);
-              t1->tau.push_back(t2);
-              unify(t1, tau.second, &cerr);  // unify?
-              tau.second = t2;
+            vector<shared_ptr<Poly>> taus;
+            taus.push_back(tau.first);
+            auto t = tau.second;
+            while (is_fun(t)) {
+              taus.push_back(new_poly(t->tau[0]));
+              t = t->tau[1];
             }
             auto fn = new_fun_var();
-            fn->tau.push_back(tau.second);
-            context.set_poly(pes.first.front(), tau.first);
-            for (size_t i = 1; i < pes.first.size(); i++) {
-              context.set_poly(pes.first[i], new_poly(taus[i]));
+            fn->tau.push_back(t);
+            for (size_t i = 0; i < pes.first.size(); i++) {
+              context.set_poly(pes.first[i], taus[i]);
             }
             tys[pes_.first] = infer(pes.second);
             for (size_t i = 0; i < pes.first.size(); i++) {
@@ -541,19 +537,16 @@ struct TypeInfer {
             fns[pes_.first] = gen(fn);
           } else {
             auto tau = inst(c->sig, context.get_exists(c->name));
-            vector<shared_ptr<Mono>> taus;
-            for (size_t i = 0; i < pes.first.size(); i++) {
-              taus.push_back(new_forall_var());
-              auto t1 = new_fun_var(), t2 = new_forall_var();
-              t1->tau.push_back(taus[i]);
-              t1->tau.push_back(t2);
-              unify(t1, tau, &cerr);  // unify?
-              tau = t2;
+            vector<shared_ptr<Poly>> taus;
+            auto t = tau;
+            while (is_fun(t)) {
+              taus.push_back(new_poly(t->tau[0]));
+              t = t->tau[1];
             }
             auto fn = new_fun_var();
-            fn->tau.push_back(tau);
+            fn->tau.push_back(t);
             for (size_t i = 0; i < pes.first.size(); i++) {
-              context.set_poly(pes.first[i], new_poly(taus[i]));
+              context.set_poly(pes.first[i], taus[i]);
             }
             tys[pes_.first] = infer(pes.second);
             for (size_t i = 0; i < pes.first.size(); i++) {
