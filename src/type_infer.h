@@ -21,8 +21,7 @@ using namespace std;
 struct TypeInfer {
   struct Context {
     map<string, vector<pair<bool, shared_ptr<void>>>> c;
-    map<shared_ptr<Expr>, shared_ptr<Mono>> type;
-    map<shared_ptr<Constructor>, set<shared_ptr<Mono>>> exists;
+    map<string, set<shared_ptr<Mono>>> exists;
     bool has_poly(const string &key) {
       auto it = c.find(key);
       if (it != c.end() && it->second.size() && it->second.back().first) {
@@ -68,14 +67,10 @@ struct TypeInfer {
         c.erase(key);
       }
     }
-    shared_ptr<Mono> get_type(shared_ptr<Expr> e) { return type[e]; }
-    void set_type(shared_ptr<Expr> e, shared_ptr<Mono> t) { type[e] = t; }
-    void add_exists(shared_ptr<Constructor> c, shared_ptr<Mono> t) {
-      exists[c].insert(t);
-    }
-    set<shared_ptr<Mono>> &get_exists(shared_ptr<Constructor> c) {
-      return exists[c];
-    }
+    //    shared_ptr<Mono> get_type(shared_ptr<Expr> e) { return type[e]; }
+    //    void set_type(shared_ptr<Expr> e, shared_ptr<Mono> t) { type[e] = t; }
+    void add_exists(string c, shared_ptr<Mono> t) { exists[c].insert(t); }
+    set<shared_ptr<Mono>> &get_exists(string c) { return exists[c]; }
   } context;
   shared_ptr<Unit> unit;
   TypeInfer(shared_ptr<Unit> unit) : unit(unit) {
@@ -157,7 +152,7 @@ struct TypeInfer {
           if (m) {
             for (auto t : st) {
               assert(is_f(t));
-              context.add_exists(c, t);
+              context.add_exists(c->name, t);
             }
           }
         } else {
@@ -406,7 +401,8 @@ struct TypeInfer {
     }
   }
 
-  void infer(shared_ptr<Expr> e) {
+  shared_ptr<Mono> infer(shared_ptr<Expr> e) {
+    shared_ptr<Mono> ty;
     if (e->sig != nullptr) {
       check(e->sig);
     }
@@ -417,60 +413,64 @@ struct TypeInfer {
           exit(EXIT_FAILURE);
         } else if (context.has_poly(e->x)) {
           auto t = context.get_poly(e->x);
-          context.set_type(e, inst(t));
+          ty = inst(t);
         } else {
           cerr << "type error: " << e->x << " is not in context" << endl;
           exit(EXIT_FAILURE);
         }
         break;
       case ExprType::APP: {
+        shared_ptr<Mono> ty1, ty2;
         if (e->e1->T == ExprType::VAR && context.has_rank2poly(e->e1->x)) {
-          //        infer(expr->e1, context, dnc);
-          infer(e->e2);
-          context.set_type(e, new_forall_var());
+          ty2 = infer(e->e2);
+          ty = new_forall_var();
           auto t = rank2inst(context.get_rank2poly(e->e1->x));
           set<shared_ptr<Mono>> st;
-          unify(t.second, context.get_type(e), &cerr);
-          unify(inst(t.first), context.get_type(e->e2), &cerr, &st);
+          unify(t.second, ty, &cerr);             // unify?
+          unify(inst(t.first), ty2, &cerr, &st);  // unify?
         } else {
-          infer(e->e1);
-          infer(e->e2);
-          context.set_type(e, new_forall_var());
+          ty1 = infer(e->e1);
+          ty2 = infer(e->e2);
+          ty = new_forall_var();
           auto t = new_fun_var();
-          t->tau.push_back(context.get_type(e->e2));
-          t->tau.push_back(context.get_type(e));
-          if (!unify(context.get_type(e->e1), t, &cerr)) {
+          t->tau.push_back(ty2);
+          t->tau.push_back(ty);
+          if (!unify(ty1, t, &cerr)) {
             exit(EXIT_FAILURE);
           }
         }
         break;
       }
       case ExprType::ABS: {
+        shared_ptr<Mono> ty_;
         auto tau = new_forall_var();
         context.set_poly(e->x, new_poly(tau));
-        infer(e->e);
-        context.set_type(e, new_fun_var());
-        context.get_type(e)->tau.push_back(tau);
-        context.get_type(e)->tau.push_back(context.get_type(e->e));
+        ty_ = infer(e->e);
+        ty = new_fun_var();
+        ty->tau.push_back(tau);
+        ty->tau.push_back(ty_);
         context.unset(e->x);
         break;
       }
       case ExprType::LET: {
-        infer(e->e1);
+        shared_ptr<Mono> ty1, ty2;
+        ty1 = infer(e->e1);
         if (e->e1->sig != nullptr) {
           context.set_poly(e->x, e->e1->sig);
         } else {
-          context.set_poly(e->x, gen(context.get_type(e->e1)));
+          context.set_poly(e->x, gen(ty1));
         }
         //      cerr << "//" << expr->x << " : " <<
         //      to_string(context.get_poly(expr->x))
         //           << endl;
-        infer(e->e2);
-        context.set_type(e, context.get_type(e->e2));
+        ty2 = infer(e->e2);
+        ty = ty2;
         context.unset(e->x);
         break;
       }
       case ExprType::REC: {
+        map<string, shared_ptr<Mono>> tys;
+        shared_ptr<Mono> ty_;
         for (auto &xe : e->xes) {
           if (xe.second->sig != nullptr) {
             context.set_poly(xe.first, xe.second->sig);
@@ -479,10 +479,10 @@ struct TypeInfer {
           }
         }
         for (auto &xe : e->xes) {
-          infer(xe.second);
+          tys[xe.first] = infer(xe.second);
         }
         for (auto &xe : e->xes) {
-          auto t = find(context.get_type(xe.second));
+          auto t = find(tys[xe.first]);
           if (xe.second->T != ExprType::ABS) {
             cerr << "type error: rec of this type is not supported" << endl;
             exit(EXIT_FAILURE);
@@ -492,20 +492,22 @@ struct TypeInfer {
           context.unset(xe.first);
         }
         for (auto &xe : e->xes) {
-          context.set_poly(xe.first, gen(context.get_type(xe.second)));
+          context.set_poly(xe.first, gen(tys[xe.first]));
           //        cerr << "//" << xe.first << " : "
           //             << to_string(context.get_poly(xe.first))
           //             <<
           //             endl;
         }
-        infer(e->e);
-        context.set_type(e, context.get_type(e->e));
+        ty_ = infer(e->e);
+        ty = ty_;
         for (auto &xe : e->xes) {
           context.unset(xe.first);
         }
         break;
       }
       case ExprType::CASE: {
+        map<string, shared_ptr<Mono>> tys;
+        shared_ptr<Mono> ty_;
         map<string, shared_ptr<Poly>> fns;
         for (auto &pes_ : e->pes) {
           auto pes = pes_.second;
@@ -513,7 +515,7 @@ struct TypeInfer {
           auto c = unit->cons[pes_.first];
           assert(c->arg == pes.first.size());
           if (c->rank2sig != nullptr) {
-            auto tau = rank2inst(c->rank2sig, context.get_exists(c));
+            auto tau = rank2inst(c->rank2sig, context.get_exists(c->name));
             vector<shared_ptr<Mono>> taus;
             taus.push_back(nullptr);
             for (size_t i = 1; i < pes.first.size(); i++) {
@@ -530,14 +532,14 @@ struct TypeInfer {
             for (size_t i = 1; i < pes.first.size(); i++) {
               context.set_poly(pes.first[i], new_poly(taus[i]));
             }
-            infer(pes.second);
+            tys[pes_.first] = infer(pes.second);
             for (size_t i = 0; i < pes.first.size(); i++) {
               context.unset(pes.first[i]);
             }
-            fn->tau.push_back(context.get_type(pes.second));
+            fn->tau.push_back(tys[pes_.first]);
             fns[pes_.first] = gen(fn);
           } else {
-            auto tau = inst(c->sig, context.get_exists(c));
+            auto tau = inst(c->sig, context.get_exists(c->name));
             vector<shared_ptr<Mono>> taus;
             for (size_t i = 0; i < pes.first.size(); i++) {
               taus.push_back(new_forall_var());
@@ -552,11 +554,11 @@ struct TypeInfer {
             for (size_t i = 0; i < pes.first.size(); i++) {
               context.set_poly(pes.first[i], new_poly(taus[i]));
             }
-            infer(pes.second);
+            tys[pes_.first] = infer(pes.second);
             for (size_t i = 0; i < pes.first.size(); i++) {
               context.unset(pes.first[i]);
             }
-            fn->tau.push_back(context.get_type(pes.second));
+            fn->tau.push_back(tys[pes_.first]);
             fns[pes_.first] = gen(fn);
           }
         }
@@ -588,7 +590,7 @@ struct TypeInfer {
         for (auto c : unit->data[unit->cons[fns.begin()->first]->data_name]
                           ->constructors) {
           if (c->rank2sig != nullptr) {
-            auto tau = rank2inst(c->rank2sig, context.get_exists(c));
+            auto tau = rank2inst(c->rank2sig, context.get_exists(c->name));
             for (size_t i = 1; i < c->arg; i++) {
               auto t1 = new_fun_var(), t2 = new_forall_var();
               t1->tau.push_back(new_forall_var());
@@ -615,7 +617,7 @@ struct TypeInfer {
               }
             }
           } else {
-            auto tau = inst(c->sig, context.get_exists(c));
+            auto tau = inst(c->sig, context.get_exists(c->name));
             for (size_t i = 0; i < c->arg; i++) {
               auto t1 = new_fun_var(), t2 = new_forall_var();
               t1->tau.push_back(new_forall_var());
@@ -643,11 +645,11 @@ struct TypeInfer {
             }
           }
         }
-        infer(e->e);
-        context.set_type(e, new_forall_var());
+        ty_ = infer(e->e);
+        ty = new_forall_var();
         auto fn = new_fun_var();
-        fn->tau.push_back(context.get_type(e->e));
-        fn->tau.push_back(context.get_type(e));
+        fn->tau.push_back(ty_);
+        fn->tau.push_back(ty);
         unify(fn, inst(gadt), &cerr);
         break;
       }
@@ -681,14 +683,15 @@ struct TypeInfer {
             assert(false);
           }
         }
-        context.set_type(e, new_forall_var());
+        ty = new_forall_var();
         break;
       }
     }
     if (e->sig != nullptr) {
       set<shared_ptr<Mono>> st;
-      unify(inst(e->sig), context.get_type(e), &cerr, &st);
+      unify(inst(e->sig), ty, &cerr, &st);
     }
+    return ty;
   }
 };
 
