@@ -526,11 +526,11 @@ struct TypeInfer {
             }
             auto fn = new_fun_var();
             fn->tau.push_back(t);
-            for (size_t i = 0; i < pes.first.size(); i++) {
+            for (size_t i = 0; i < c->arg; i++) {
               context.set_poly(pes.first[i], taus[i]);
             }
             tys[pes_.first] = infer(pes.second);
-            for (size_t i = 0; i < pes.first.size(); i++) {
+            for (size_t i = 0; i < c->arg; i++) {
               context.unset(pes.first[i]);
             }
             fn->tau.push_back(tys[pes_.first]);
@@ -545,11 +545,11 @@ struct TypeInfer {
             }
             auto fn = new_fun_var();
             fn->tau.push_back(t);
-            for (size_t i = 0; i < pes.first.size(); i++) {
+            for (size_t i = 0; i < c->arg; i++) {
               context.set_poly(pes.first[i], taus[i]);
             }
             tys[pes_.first] = infer(pes.second);
-            for (size_t i = 0; i < pes.first.size(); i++) {
+            for (size_t i = 0; i < c->arg; i++) {
               context.unset(pes.first[i]);
             }
             fn->tau.push_back(tys[pes_.first]);
@@ -585,15 +585,15 @@ struct TypeInfer {
                           ->constructors) {
           if (c->rank2sig != nullptr) {
             auto tau = rank2inst(c->rank2sig, context.get_exists(c->name));
-            for (size_t i = 1; i < c->arg; i++) {
-              auto t1 = new_fun_var(), t2 = new_forall_var();
-              t1->tau.push_back(new_forall_var());
-              t1->tau.push_back(t2);
-              unify(t1, tau.second, &cerr);  // unify?
-              tau.second = t2;
+            vector<shared_ptr<Poly>> taus;
+            taus.push_back(tau.first);
+            auto t = tau.second;
+            while (is_fun(t)) {
+              taus.push_back(new_poly(t->tau[0]));
+              t = t->tau[1];
             }
             auto fn = new_fun_var(), ret = new_forall_var();
-            fn->tau.push_back(tau.second);
+            fn->tau.push_back(t);
             fn->tau.push_back(ret);
             if (unify(fn, inst(gadt), nullptr)) {  // unify?
               if (fns.count(c->name)) {
@@ -612,15 +612,12 @@ struct TypeInfer {
             }
           } else {
             auto tau = inst(c->sig, context.get_exists(c->name));
-            for (size_t i = 0; i < c->arg; i++) {
-              auto t1 = new_fun_var(), t2 = new_forall_var();
-              t1->tau.push_back(new_forall_var());
-              t1->tau.push_back(t2);
-              unify(t1, tau, &cerr);  // unify?
-              tau = t2;
+            auto t = tau;
+            while (is_fun(t)) {
+              t = t->tau[1];
             }
             auto fn = new_fun_var(), ret = new_forall_var();
-            fn->tau.push_back(tau);
+            fn->tau.push_back(t);
             fn->tau.push_back(ret);
             if (unify(fn, inst(gadt), nullptr)) {  // unify?
               if (fns.count(c->name)) {
