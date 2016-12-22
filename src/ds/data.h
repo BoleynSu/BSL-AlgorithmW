@@ -13,7 +13,6 @@ struct Constructor {
   string name;
   size_t arg;
   shared_ptr<Poly> sig;
-  shared_ptr<Rank2Poly> rank2sig;
   string data_name;
 };
 

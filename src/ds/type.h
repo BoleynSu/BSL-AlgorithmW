@@ -12,9 +12,13 @@
 
 using namespace std;
 
+struct Poly;
+
 struct Mono {
   shared_ptr<Mono> par;
   bool is_const;
+  bool is_poly;
+  shared_ptr<Poly> sigma;
   string D;
   vector<shared_ptr<Mono>> tau;
   bool is_forall;
@@ -27,19 +31,13 @@ struct Poly {
   shared_ptr<Poly> sigma;
 };
 
-struct Rank2Poly {
-  bool is_forall;
-  shared_ptr<Mono> alpha;
-  shared_ptr<Rank2Poly> sigma;
-
-  shared_ptr<Poly> poly;
-  shared_ptr<Mono> mono;
-};
-
 bool is_c(shared_ptr<Mono> x) { return x->is_const; }
+bool is_p(shared_ptr<Mono> x) { return x->is_const && x->is_poly; }
 bool is_f(shared_ptr<Mono> x) { return (!x->is_const) && x->is_forall; }
 bool is_e(shared_ptr<Mono> x) { return (!x->is_const) && (!x->is_forall); }
-bool is_fun(shared_ptr<Mono> x) { return x->is_const && x->D == "->"; }
+bool is_fun(shared_ptr<Mono> x) {
+  return x->is_const && !x->is_poly && x->D == "->";
+}
 
 shared_ptr<Mono> find(shared_ptr<Mono> x) {
   if (x->par != nullptr) {
@@ -55,15 +53,19 @@ string to_string(shared_ptr<Poly>);
 string to_string(shared_ptr<Mono> tau) {
   tau = find(tau);
   if (is_c(tau)) {
-    if (is_fun(tau)) {
-      return "(" + to_string(tau->tau[0]) + ")->(" + to_string(tau->tau[1]) +
-             ")";
+    if (is_p(tau)) {
+      return "(" + to_string(tau->sigma) + ")";
     } else {
-      string ret = tau->D;
-      for (auto t : tau->tau) {
-        ret += " (" + to_string(t) + ")";
+      if (is_fun(tau)) {
+        return "(" + to_string(tau->tau[0]) + ")->(" + to_string(tau->tau[1]) +
+               ")";
+      } else {
+        string ret = tau->D;
+        for (auto t : tau->tau) {
+          ret += " (" + to_string(t) + ")";
+        }
+        return ret;
       }
-      return ret;
     }
   } else {
     stringstream s;
@@ -83,28 +85,26 @@ string to_string(shared_ptr<Poly> sigma) {
   }
 }
 
-string to_string(shared_ptr<Rank2Poly> sigma) {
-  if (sigma->is_forall) {
-    stringstream s;
-    assert(is_f(sigma->alpha));
-    s << sigma->alpha;
-    return "forall " + s.str() + ". " + to_string(sigma->sigma);
-  } else {
-    stringstream s;
-    return "(" + to_string(sigma->poly) + ")->(" + to_string(sigma->mono) + ")";
-  }
-}
-
-shared_ptr<Mono> new_const_var(const string &D) {
+shared_ptr<Mono> new_const(const string &D) {
   auto t = make_shared<Mono>();
   t->is_const = true;
+  t->is_poly = false;
   t->D = D;
   return t;
 }
 
-shared_ptr<Mono> new_fun_var() {
+shared_ptr<Mono> new_const(shared_ptr<Poly> sigma) {
   auto t = make_shared<Mono>();
   t->is_const = true;
+  t->is_poly = true;
+  t->sigma = sigma;
+  return t;
+}
+
+shared_ptr<Mono> new_fun() {
+  auto t = make_shared<Mono>();
+  t->is_const = true;
+  t->is_poly = false;
   t->D = "->";
   return t;
 }
@@ -138,23 +138,6 @@ shared_ptr<Poly> new_poly(shared_ptr<Mono> alpha, shared_ptr<Poly> sigma) {
   return p;
 }
 
-shared_ptr<Rank2Poly> new_rank2poly(shared_ptr<Poly> p, shared_ptr<Mono> m) {
-  auto t = make_shared<Rank2Poly>();
-  t->is_forall = false;
-  t->poly = p;
-  t->mono = m;
-  return t;
-}
-
-shared_ptr<Rank2Poly> new_rank2poly(shared_ptr<Mono> alpha,
-                                    shared_ptr<Rank2Poly> sigma) {
-  auto t = make_shared<Rank2Poly>();
-  t->is_forall = true;
-  t->alpha = alpha;
-  t->sigma = sigma;
-  return t;
-}
-
 shared_ptr<Mono> get_mono(shared_ptr<Poly> t) {
   while (!t->is_mono) {
     t = t->sigma;
@@ -162,27 +145,13 @@ shared_ptr<Mono> get_mono(shared_ptr<Poly> t) {
   return t->tau;
 }
 
-shared_ptr<Mono> get_mono(shared_ptr<Rank2Poly> t) {
-  while (t->is_forall) {
-    t = t->sigma;
-  }
-  return t->mono;
-}
-
-shared_ptr<Mono> get_ret(shared_ptr<Mono> t) {
-  while (is_fun(t)) {
-    t = t->tau[1];
-  }
-  return t;
-}
-
-shared_ptr<Mono> inst(shared_ptr<Mono> tau,
-                      map<shared_ptr<Mono>, shared_ptr<Mono>> &m) {
+shared_ptr<Mono> inst_with_exists(shared_ptr<Mono> tau,
+                                  map<shared_ptr<Mono>, shared_ptr<Mono>> &m) {
   tau = find(tau);
   if (is_c(tau)) {
     auto t = make_shared<Mono>(*tau);
     for (size_t i = 0; i < tau->tau.size(); i++) {
-      t->tau[i] = inst(tau->tau[i], m);
+      t->tau[i] = inst_with_exists(tau->tau[i], m);
     }
     return t;
   } else {
@@ -194,62 +163,50 @@ shared_ptr<Mono> inst(shared_ptr<Mono> tau,
   }
 }
 
-shared_ptr<Mono> inst(shared_ptr<Poly> sigma,
-                      map<shared_ptr<Mono>, shared_ptr<Mono>> &m) {
+shared_ptr<Mono> inst_with_exists(shared_ptr<Poly> sigma,
+                                  map<shared_ptr<Mono>, shared_ptr<Mono>> &m) {
   if (sigma->is_mono) {
-    return inst(sigma->tau, m);
+    return inst_with_exists(sigma->tau, m);
   } else {
     if (!m.count(find(sigma->alpha))) {
       m[find(sigma->alpha)] = new_forall_var();
     }
-    return inst(sigma->sigma, m);
+    return inst_with_exists(sigma->sigma, m);
   }
 }
 
 shared_ptr<Mono> inst(shared_ptr<Poly> sigma) {
   map<shared_ptr<Mono>, shared_ptr<Mono>> m;
-  return inst(sigma, m);
+  return inst_with_exists(sigma, m);
 }
 
-shared_ptr<Mono> inst(shared_ptr<Poly> sigma, set<shared_ptr<Mono>> &exists) {
-  map<shared_ptr<Mono>, shared_ptr<Mono>> m;
-  for (auto e : exists) {
-    m[e] = new_exists_var();
-  }
-  return inst(sigma, m);
-}
-
-pair<shared_ptr<Poly>, shared_ptr<Mono>> rank2inst(
-    shared_ptr<Rank2Poly> sigma, map<shared_ptr<Mono>, shared_ptr<Mono>> &m) {
-  if (sigma->is_forall) {
+shared_ptr<Mono> inst_get_set(shared_ptr<Poly> sigma,
+                              map<shared_ptr<Mono>, shared_ptr<Mono>> &m,
+                              set<shared_ptr<Mono>> &st) {
+  if (sigma->is_mono) {
+    return inst_with_exists(sigma->tau, m);
+  } else {
     if (!m.count(find(sigma->alpha))) {
       m[find(sigma->alpha)] = new_forall_var();
+      st.insert(m[find(sigma->alpha)]);
     }
-    return rank2inst(sigma->sigma, m);
-  } else {
-    auto t = make_shared<Poly>(*sigma->poly);
-    while (!t->is_mono) {
-      t->sigma = make_shared<Poly>(*t->sigma);
-      t = t->sigma;
-    }
-    t->tau = inst(t->tau, m);
-    return make_pair(t, inst(sigma->mono, m));
+    return inst_with_exists(sigma->sigma, m);
   }
 }
 
-pair<shared_ptr<Poly>, shared_ptr<Mono>> rank2inst(
-    shared_ptr<Rank2Poly> sigma) {
+shared_ptr<Mono> inst_get_set(shared_ptr<Poly> sigma,
+                              set<shared_ptr<Mono>> &st) {
   map<shared_ptr<Mono>, shared_ptr<Mono>> m;
-  return rank2inst(sigma, m);
+  return inst_with_exists(sigma, m);
 }
 
-pair<shared_ptr<Poly>, shared_ptr<Mono>> rank2inst(
-    shared_ptr<Rank2Poly> sigma, set<shared_ptr<Mono>> &exists) {
+shared_ptr<Mono> inst_with_exists(shared_ptr<Poly> sigma,
+                                  set<shared_ptr<Mono>> &exists) {
   map<shared_ptr<Mono>, shared_ptr<Mono>> m;
   for (auto e : exists) {
     m[e] = new_exists_var();
   }
-  return rank2inst(sigma, m);
+  return inst_with_exists(sigma, m);
 }
 
 void ftv(set<shared_ptr<Mono>> &, shared_ptr<Poly>);

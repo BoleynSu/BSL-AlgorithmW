@@ -63,7 +63,7 @@ struct Parser {
   shared_ptr<Mono> parse_monotype(map<string, shared_ptr<Mono>> &m) {
     auto mo = parse_monotype_(m);
     if (accept(TokenType::RIGHTARROW)) {
-      auto t = new_fun_var();
+      auto t = new_fun();
       t->tau.push_back(mo);
       t->tau.push_back(parse_monotype(m));
       mo = t;
@@ -77,14 +77,19 @@ struct Parser {
       if (m.count(t.data)) {
         mo = m[t.data];
       } else {
-        mo = new_const_var(t.data);
+        mo = new_const(t.data);
       }
     } else {
       expect(TokenType::LEFT_PARENTHESIS);
-      mo = parse_monotype(m);
+      auto po = parse_polytype(m);
+      if (po->is_mono) {
+        mo = po->tau;
+      } else {
+        mo = new_const(po);
+      }
       expect(TokenType::RIGHT_PARENTHESIS);
     }
-    if (is_c(mo) && !is_fun(mo)) {
+    if (is_c(mo) && !is_p(mo) && !is_fun(mo)) {
       auto t1 = mo;
       while (match(TokenType::IDENTIFIER) ||
              match(TokenType::LEFT_PARENTHESIS)) {
@@ -92,7 +97,7 @@ struct Parser {
           if (m.count(t.data)) {
             mo = m[t.data];
           } else {
-            mo = new_const_var(t.data);
+            mo = new_const(t.data);
           }
         } else {
           expect(TokenType::LEFT_PARENTHESIS);
@@ -119,64 +124,15 @@ struct Parser {
              << "`" << data << "`" << endl;
         exit(EXIT_FAILURE);
       }
-      auto alpha = m[t.data] = new_forall_var();
+      string tname = t.data;
+      auto alpha = m[tname] = new_forall_var();
       expect(TokenType::DOT);
-      return new_poly(alpha, parse_polytype(m));
+      auto ret = new_poly(alpha, parse_polytype(m));
+      m.erase(tname);
+      return ret;
     } else {
       return new_poly(parse_monotype(m));
     }
-  }
-  pair<shared_ptr<Poly>, shared_ptr<Rank2Poly>> parse_polytype_or_rank2polytype(
-      map<string, shared_ptr<Mono>> &m) {
-    pair<shared_ptr<Poly>, shared_ptr<Rank2Poly>> r;
-    if (accept(TokenType::FORALL)) {
-      expect(TokenType::IDENTIFIER);
-      if (m.count(t.data)) {
-        string data = t.data;
-        if (data.length() > 78) {
-          data = data.substr(0, 75) + "...";
-        }
-        cerr << "parser: " << to_string(t.position)
-             << " type variable names conflict" << endl
-             << "`" << data << "`" << endl;
-        exit(EXIT_FAILURE);
-      }
-      auto alpha = m[t.data] = new_forall_var();
-      expect(TokenType::DOT);
-      r = parse_polytype_or_rank2polytype(m);
-      if (r.second != nullptr) {
-        r.second = new_rank2poly(alpha, r.second);
-      } else {
-        r.first = new_poly(alpha, r.first);
-      }
-    } else {
-      size_t cnt = 0;
-      while (accept(TokenType::LEFT_PARENTHESIS)) {
-        cnt++;
-      }
-      if (match(TokenType::FORALL)) {
-        auto poly = parse_polytype(m);
-        for (size_t i = 0; i < cnt; i++) {
-          expect(TokenType::RIGHT_PARENTHESIS);
-        }
-        expect(TokenType::RIGHTARROW);
-        auto mono = parse_monotype(m);
-        r.second = new_rank2poly(poly, mono);
-      } else {
-        auto mo = parse_monotype(m);
-        for (size_t i = 0; i < cnt; i++) {
-          expect(TokenType::RIGHT_PARENTHESIS);
-        }
-        if (accept(TokenType::RIGHTARROW)) {
-          auto t = new_fun_var();
-          t->tau.push_back(mo);
-          t->tau.push_back(parse_monotype(m));
-          mo = t;
-        }
-        r.first = new_poly(mo);
-      }
-    }
-    return r;
   }
 
   shared_ptr<Constructor> parse_constructor() {
@@ -195,27 +151,13 @@ struct Parser {
     c->name = t.data;
     expect(TokenType::COLON);
     map<string, shared_ptr<Mono>> m;
-    auto r = parse_polytype_or_rank2polytype(m);
-    if (r.second != nullptr) {
-      c->rank2sig = r.second;
-    } else {
-      c->sig = r.first;
-    }
+    c->sig = parse_polytype(m);
     unit->cons[c->name] = c;
-    if (c->rank2sig != nullptr) {
-      c->arg = 1;
-      auto tm = get_mono(c->rank2sig);
-      while (is_fun(tm)) {
-        c->arg++;
-        tm = tm->tau[1];
-      }
-    } else {
-      auto tm = get_mono(c->sig);
-      c->arg = 0;
-      while (is_fun(tm)) {
-        c->arg++;
-        tm = tm->tau[1];
-      }
+    auto tm = get_mono(c->sig);
+    c->arg = 0;
+    while (is_fun(tm)) {
+      c->arg++;
+      tm = tm->tau[1];
     }
     return c;
   }
