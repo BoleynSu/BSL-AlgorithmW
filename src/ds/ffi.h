@@ -8,7 +8,6 @@ using namespace std;
 
 struct Ffi {
   string source;
-  set<string> fv;
 };
 
 #endif

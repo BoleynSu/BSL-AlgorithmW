@@ -105,7 +105,7 @@ struct Compiler {
       }
 
       if (executable.empty()) {
-        if (int code = system("./a.out")) {
+        if (int code = system("time ./a.out")) {
           exit(code);
         }
       }

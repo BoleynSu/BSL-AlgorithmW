@@ -380,7 +380,6 @@ struct Parser {
             v.push_back(c);
             idx++;
           }
-          ffi->fv.insert(v);
         } else {
           string data = t.data;
           if (data.length() > 78) {

@@ -652,10 +652,33 @@ struct TypeInfer {
         break;
       }
       case ExprType::FFI: {
-        for (auto fv : e->ffi->fv) {
-          if (!context.has_poly(fv) && !context.has_rank2poly(fv)) {
-            cerr << "type error: " << fv << " is not in context" << endl;
-            exit(EXIT_FAILURE);
+        size_t idx = 0;
+        while (idx < e->ffi->source.length() &&
+               (idx = e->ffi->source.find("$", idx)) != string::npos) {
+          if (++idx < e->ffi->source.length()) {
+            char c = e->ffi->source[idx];
+            if (('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z') || c == '_') {
+              string v;
+              v.push_back(c);
+              idx++;
+              while (idx < e->ffi->source.length()) {
+                c = e->ffi->source[idx];
+                if (!(('0' <= c && c <= '9') || ('A' <= c && c <= 'Z') ||
+                      ('a' <= c && c <= 'z') || c == '_' || c == '\'')) {
+                  break;
+                }
+                v.push_back(c);
+                idx++;
+              }
+              if (!context.has_poly(v) && !context.has_rank2poly(v)) {
+                cerr << "type error: " << v << " is not in context" << endl;
+                exit(EXIT_FAILURE);
+              }
+            } else {
+              assert(false);
+            }
+          } else {
+            assert(false);
           }
         }
         context.set_type(e, new_forall_var());
