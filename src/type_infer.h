@@ -70,12 +70,13 @@ struct TypeInfer {
       for (auto &c : da->constructors) {
         check(da, c);
       }
-      cerr << da->name << ":" << to_string(context.kind[da->name]) << endl;
+      //      cerr << da->name << ":" << to_string(context.kind[da->name]) <<
+      //      endl;
     }
     for (auto dai : unit->data) {
       auto da = dai.second;
       for (auto &c : da->constructors) {
-        cerr << "//" << c->name << " : " << to_string(c->sig) << endl;
+        //        cerr << c->name << " : " << to_string(c->sig) << endl;
         context.set_type_env(c->name, c->sig);
       }
     }
@@ -684,10 +685,11 @@ struct TypeInfer {
         } else {
           context.set_type_env(e->x, gen(ty1));
         }
-        cerr << "//" << e->x << " : "
-             << (e->e1->sig != nullptr ? to_string(e->e1->sig)
-                                       : to_string(gen(ty1)))
-             << endl;
+        //        cerr << e->x << " : " << (e->e1->sig != nullptr ?
+        //        to_string(e->e1->sig)
+        //                                                        :
+        //                                                        to_string(gen(ty1)))
+        //             << endl;
         ty2 = infer(e->e2, sig);
         ty = ty2;
         context.unset_type_env(e->x);
@@ -714,7 +716,7 @@ struct TypeInfer {
             cerr << "type error: rec of this type is not supported" << endl;
             exit(EXIT_FAILURE);
           }
-          //          cerr << "//" << xe.first << " : "
+          //          cerr << xe.first << " : "
           //               << (xe.second->sig != nullptr ?
           //               to_string(xe.second->sig)
           //                                             :
@@ -800,11 +802,10 @@ struct TypeInfer {
                  unit->data.count(get_cd(find(t->tau[0]))));
         }
         //        for (auto &fn : fns) {
-        //          cerr << "//case " << fn.first << " : " <<
-        //          to_string(fn.second)
-        //               << endl;
+        //          cerr << "case " << fn.first << " : " << to_string(fn.second)
+        //          << endl;
         //        }
-        //        cerr << "//: " << to_string(gadt) << endl;
+        //        cerr << "gadt : " << to_string(gadt) << endl;
         for (auto c : unit->data[unit->cons[fns.begin()->first]->data_name]
                           ->constructors) {
           auto tau = inst_with_exists(c->sig, context.get_exists(c->name));
