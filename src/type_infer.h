@@ -106,7 +106,7 @@ struct TypeInfer {
       }
       p->kind = new_const_kind();
     } else {
-      if (!has_cd(p) || get_cd(p) != da->name) {
+      if (!is_cd(p) || p->D.D != da->name) {
         cerr << "in constructor " << c->name << ":" << to_string(c->sig) << endl
              << "return type is not `" << da->name << "`" << endl;
         exit(EXIT_FAILURE);
@@ -201,7 +201,7 @@ struct TypeInfer {
         check(t, p->sigma, st);
         p->kind = get_mono(p->sigma)->kind;
       } else {
-        if (has_cd(p)) {
+        if (is_cd(p)) {
           if (is_fun(p)) {
             assert(p->tau.size() == 2);
             check(t, p->tau[0], st);
@@ -216,8 +216,8 @@ struct TypeInfer {
             }
             p->kind = new_const_kind();
           } else {
-            if (unit->data.count(get_cd(p))) {
-              auto k = context.kind[get_cd(p)];
+            if (unit->data.count(p->D.D)) {
+              auto k = context.kind[p->D.D];
               for (size_t i = 0; i < p->tau.size(); i++) {
                 auto ret = new_kind();
                 check(t, p->tau[i], st);
@@ -233,7 +233,7 @@ struct TypeInfer {
               }
             } else {
               cerr << "in signature " << to_string(t) << endl
-                   << "`" << get_cd(p) << "` is not a type" << endl;
+                   << "`" << p->D.D << "` is not a type" << endl;
               exit(EXIT_FAILURE);
             }
           }
@@ -312,7 +312,7 @@ struct TypeInfer {
       if (is_p(b)) {
         return occ(a, b->sigma);
       } else {
-        if (!has_cd(b)) {
+        if (!is_cd(b)) {
           if (occ(a, b->D.d)) {
             return true;
           }
@@ -363,7 +363,8 @@ struct TypeInfer {
               }
               return false;
             } else {
-              if (!unify(inst_get_set(a->sigma, *st), b, cerr, st)) {
+              set<shared_ptr<Mono>> sta;
+              if (!unify(inst_get_set(a->sigma, sta), b, cerr, &sta)) {
                 return false;
               } else {
                 return true;
@@ -376,71 +377,78 @@ struct TypeInfer {
               return true;
             }
           } else {
-            if (has_cd(a) && has_cd(b)) {
-              if (get_cd(a) != get_cd(b)) {
-                if (cerr != nullptr) {
-                  (*cerr) << "type error: " << to_string(a)
-                          << " /= " << to_string(b) << endl;
-                }
-                return false;
+            if (!is_cd(a) && is_cd(find(a->D.d))) {
+              a->D.d = find(a->D.d);
+              auto na = new_const(a->D.d->D.D, a->kind);
+              for (size_t i = 0; i < a->D.d->tau.size(); i++) {
+                na->tau.push_back(a->D.d->tau[i]);
               }
-            } else if (has_cd(a)) {
-              if (st != nullptr && st->count(find(b->D.d))) {
-                if (cerr != nullptr) {
-                  (*cerr) << "type error: " << to_string(a) << " !< "
-                          << to_string(b) << endl;
-                }
-                return false;
-              } else {
-                if (unify(context.kind[get_cd(a)], find(b->D.d)->kind, cerr)) {
-                  find(b->D.d)->par =
-                      new_const(get_cd(a), context.kind[get_cd(a)]);
-                } else {
+              for (size_t i = 0; i < a->tau.size(); i++) {
+                na->tau.push_back(a->tau[i]);
+              }
+              return unify(na, b, cerr, st);
+            } else if (!is_cd(b) && is_cd(find(b->D.d))) {
+              b->D.d = find(b->D.d);
+              auto nb = new_const(b->D.d->D.D, b->kind);
+              for (size_t i = 0; i < b->D.d->tau.size(); i++) {
+                nb->tau.push_back(b->D.d->tau[i]);
+              }
+              for (size_t i = 0; i < b->tau.size(); i++) {
+                nb->tau.push_back(b->tau[i]);
+              }
+              return unify(a, nb, cerr, st);
+            } else if (a->tau.size() == b->tau.size()) {
+              if (is_cd(a) && is_cd(b)) {
+                if (a->D.D != b->D.D) {
+                  if (cerr != nullptr) {
+                    (*cerr) << "type error: " << to_string(a)
+                            << " /= " << to_string(b) << endl;
+                  }
                   return false;
                 }
-              }
-            } else if (has_cd(b)) {
-              if (st != nullptr && st->count(find(a->D.d))) {
-                if (cerr != nullptr) {
-                  (*cerr) << "type error: " << to_string(a) << " !< "
-                          << to_string(b) << endl;
-                }
-                return false;
-              } else {
-                if (unify(find(a->D.d)->kind, context.kind[get_cd(b)], cerr)) {
-                  find(a->D.d)->par =
-                      new_const(get_cd(b), context.kind[get_cd(b)]);
-                } else {
-                  return false;
-                }
-              }
-            } else {
-              if (st != nullptr && st->count(find(a->D.d))) {
-                if (st != nullptr && st->count(find(b->D.d))) {
+              } else if (is_cd(a)) {
+                b->D.d = find(b->D.d);
+                if (st != nullptr && st->count(b->D.d)) {
                   if (cerr != nullptr) {
                     (*cerr) << "type error: " << to_string(a) << " !< "
                             << to_string(b) << endl;
                   }
                   return false;
                 } else {
-                  if (unify(context.kind[get_cd(a)], find(b->D.d)->kind,
-                            cerr)) {
-                    find(b->D.d)->par =
-                        new_const(get_cd(a), context.kind[get_cd(a)]);
-                  } else {
-                    return false;
+                  b->D.d->par = new_const(a->D.D, context.kind[a->D.D]);
+                  b->D.is_const = true;
+                  b->D.D = a->D.D;
+                }
+              } else if (is_cd(b)) {
+                a->D.d = find(a->D.d);
+                if (st != nullptr && st->count(a->D.d)) {
+                  if (cerr != nullptr) {
+                    (*cerr) << "type error: " << to_string(a) << " !< "
+                            << to_string(b) << endl;
                   }
+                  return false;
+                } else {
+                  a->D.d->par = new_const(b->D.D, context.kind[b->D.D]);
+                  a->D.is_const = true;
+                  a->D.D = b->D.D;
                 }
               } else {
-                if (unify(find(a->D.d)->kind, context.kind[get_cd(b)], cerr)) {
-                  find(a->D.d)->par =
-                      new_const(get_cd(b), context.kind[get_cd(b)]);
+                a->D.d = find(a->D.d);
+                b->D.d = find(b->D.d);
+                if (st != nullptr && st->count(b->D.d)) {
+                  if (st != nullptr && st->count(a->D.d)) {
+                    if (cerr != nullptr) {
+                      (*cerr) << "type error: " << to_string(a) << " !< "
+                              << to_string(b) << endl;
+                    }
+                    return false;
+                  } else {
+                    a->D.d->par = b->D.d;
+                  }
                 } else {
-                  return false;
+                  b->D.d->par = a->D.d;
                 }
               }
-            }
-            if (a->tau.size() == b->tau.size()) {
               for (size_t i = 0; i < a->tau.size(); i++) {
                 if (!unify(a->tau[i], b->tau[i], cerr, st)) {
                   return false;
@@ -448,13 +456,113 @@ struct TypeInfer {
               }
               return true;
             } else {
-              if (cerr != nullptr) {
-                (*cerr) << "type error: " << to_string(a)
-                        << " /= " << to_string(b) << endl;
+              if (a->tau.size() > b->tau.size()) {
+                if (is_c(b)) {
+                  if (cerr != nullptr) {
+                    (*cerr) << "type error: " << to_string(a)
+                            << " /= " << to_string(b) << endl;
+                  }
+                  return false;
+                }
+                b->D.d = find(b->D.d);
+                shared_ptr<Kind> k;
+                shared_ptr<Mono> h, hnt;
+                if (is_c(a)) {
+                  k = context.kind[a->D.D];
+                  h = new_const(a->D.D, k);
+                  hnt = new_const(a->D.D, k);
+                } else {
+                  a->D.d = find(a->D.d);
+                  k = a->D.d->kind;
+                  h = new_const(a->D.d, k);
+                  hnt = new_const(a->D.d, k);
+                }
+                for (size_t i = 0; i + b->tau.size() < a->tau.size(); i++) {
+                  h->tau.push_back(a->tau[i]);
+                  hnt->tau.push_back(a->tau[i]);
+                  auto t = new_kind();
+                  if (!unify(k, new_kind(a->tau[i]->kind, t), cerr)) {
+                    return false;
+                  }
+                  k = t;
+                }
+                if (st != nullptr && st->count(b->D.d)) {
+                  if (cerr != nullptr) {
+                    (*cerr) << "type error: " << to_string(a) << " !< "
+                            << to_string(b) << endl;
+                  }
+                  return false;
+                } else {
+                  b->D.d->par = h;
+                  if (!unify(k, b->D.d->kind, cerr)) {
+                    return false;
+                  }
+                  for (size_t i = 0; i < b->tau.size(); i++) {
+                    hnt->tau.push_back(
+                        a->tau[a->tau.size() - b->tau.size() + i]);
+                    if (!unify(a->tau[a->tau.size() - b->tau.size() + i],
+                               b->tau[i], cerr, st)) {
+                      return false;
+                    }
+                  }
+                  b.swap(hnt);
+                  return true;
+                }
+              } else {
+                if (is_c(a)) {
+                  if (cerr != nullptr) {
+                    (*cerr) << "type error: " << to_string(a)
+                            << " /= " << to_string(b) << endl;
+                  }
+                  return false;
+                }
+                a->D.d = find(a->D.d);
+                shared_ptr<Kind> k;
+                shared_ptr<Mono> h, hnt;
+                if (is_c(b)) {
+                  k = context.kind[b->D.D];
+                  h = new_const(b->D.D, k);
+                  hnt = new_const(b->D.D, k);
+                } else {
+                  b->D.d = find(b->D.d);
+                  k = b->D.d->kind;
+                  h = new_const(b->D.d, k);
+                  hnt = new_const(b->D.d, k);
+                }
+                for (size_t i = 0; i + a->tau.size() < b->tau.size(); i++) {
+                  h->tau.push_back(b->tau[i]);
+                  hnt->tau.push_back(b->tau[i]);
+                  auto t = new_kind();
+                  if (!unify(k, new_kind(b->tau[i]->kind, t), cerr)) {
+                    return false;
+                  }
+                  k = t;
+                }
+                if (st != nullptr && !st->count(a->D.d)) {
+                  if (cerr != nullptr) {
+                    (*cerr) << "type error: " << to_string(a) << " !< "
+                            << to_string(b) << endl;
+                  }
+                  return false;
+                } else {
+                  a->D.d->par = h;
+                  if (!unify(k, a->D.d->kind, cerr)) {
+                    return false;
+                  }
+                  for (size_t i = 0; i < a->tau.size(); i++) {
+                    hnt->tau.push_back(
+                        b->tau[b->tau.size() - a->tau.size() + i]);
+                    if (!unify(a->tau[i],
+                               b->tau[b->tau.size() - a->tau.size() + i], cerr,
+                               st)) {
+                      return false;
+                    }
+                  }
+                  a.swap(hnt);
+                  return true;
+                }
               }
-              return false;
             }
-            return true;
           }
         } else if (is_f(b)) {
           if (occ(b, a)) {
@@ -472,14 +580,14 @@ struct TypeInfer {
                 return true;
               }
             } else {
-              if (st != nullptr && st->count(b)) {
-                if (cerr != nullptr) {
-                  (*cerr) << "type error: " << to_string(a) << " !< "
-                          << to_string(b) << endl;
-                }
+              if (!unify(a->kind, b->kind, cerr)) {
                 return false;
               } else {
-                if (!unify(a->kind, b->kind, cerr)) {
+                if (st != nullptr && st->count(b)) {
+                  if (cerr != nullptr) {
+                    (*cerr) << "type error: " << to_string(a) << " !< "
+                            << to_string(b) << endl;
+                  }
                   return false;
                 } else {
                   b->par = a;
@@ -504,14 +612,14 @@ struct TypeInfer {
             }
             return false;
           } else {
-            if (st != nullptr && st->count(a)) {
-              if (cerr != nullptr) {
-                (*cerr) << "type error: " << to_string(a) << " !< "
-                        << to_string(b) << endl;
-              }
+            if (!unify(a->kind, b->kind, cerr)) {
               return false;
             } else {
-              if (!unify(a->kind, b->kind, cerr)) {
+              if (st != nullptr && st->count(a)) {
+                if (cerr != nullptr) {
+                  (*cerr) << "type error: " << to_string(a) << " !< "
+                          << to_string(b) << endl;
+                }
                 return false;
               } else {
                 a->par = b;
@@ -520,38 +628,34 @@ struct TypeInfer {
             }
           }
         } else if (is_f(b)) {
-          if (st != nullptr && st->count(b)) {
-            if (st != nullptr && st->count(a)) {
-              if (cerr != nullptr) {
-                (*cerr) << "type error: " << to_string(a) << " !< "
-                        << to_string(b) << endl;
-              }
-              return false;
-            } else {
-              if (!unify(a->kind, b->kind, cerr)) {
+          if (!unify(a->kind, b->kind, cerr)) {
+            return false;
+          } else {
+            if (st != nullptr && st->count(b)) {
+              if (st != nullptr && st->count(a)) {
+                if (cerr != nullptr) {
+                  (*cerr) << "type error: " << to_string(a) << " !< "
+                          << to_string(b) << endl;
+                }
                 return false;
               } else {
                 a->par = b;
                 return true;
               }
-            }
-          } else {
-            if (!unify(a->kind, b->kind, cerr)) {
-              return false;
             } else {
               b->par = a;
               return true;
             }
           }
         } else {
-          if (st != nullptr && st->count(a)) {
-            if (cerr != nullptr) {
-              (*cerr) << "type error: " << to_string(a) << " !< "
-                      << to_string(b) << endl;
-            }
+          if (!unify(a->kind, b->kind, cerr)) {
             return false;
           } else {
-            if (!unify(a->kind, b->kind, cerr)) {
+            if (st != nullptr && st->count(a)) {
+              if (cerr != nullptr) {
+                (*cerr) << "type error: " << to_string(a) << " !< "
+                        << to_string(b) << endl;
+              }
               return false;
             } else {
               a->par = b;
@@ -567,14 +671,14 @@ struct TypeInfer {
           }
           return false;
         } else if (is_f(b)) {
-          if (st != nullptr && st->count(b)) {
-            if (cerr != nullptr) {
-              (*cerr) << "type error: " << to_string(a) << " !< "
-                      << to_string(b) << endl;
-            }
+          if (!unify(a->kind, b->kind, cerr)) {
             return false;
           } else {
-            if (!unify(a->kind, b->kind, cerr)) {
+            if (st != nullptr && st->count(b)) {
+              if (cerr != nullptr) {
+                (*cerr) << "type error: " << to_string(a) << " !< "
+                        << to_string(b) << endl;
+              }
               return false;
             } else {
               b->par = a;
@@ -777,8 +881,8 @@ struct TypeInfer {
           check(gadt);
           auto t = find(get_mono(gadt));
           if (!(is_fun(t) && is_c(find(t->tau[0])) && !is_p(find(t->tau[0])) &&
-                has_cd(find(t->tau[0])) &&
-                unit->data.count(get_cd(find(t->tau[0]))))) {
+                is_cd(find(t->tau[0])) &&
+                unit->data.count(find(t->tau[0])->D.D))) {
             cerr << "type error: invaliad signature for case expression" << endl
                  << to_string(gadt) << endl;
             exit(EXIT_FAILURE);
@@ -798,11 +902,12 @@ struct TypeInfer {
           gadt = gen(gadt_);
           auto t = find(get_mono(gadt));
           assert(is_fun(t) && is_c(find(t->tau[0])) && !is_p(find(t->tau[0])) &&
-                 has_cd(find(t->tau[0])) &&
-                 unit->data.count(get_cd(find(t->tau[0]))));
+                 is_cd(find(t->tau[0])) &&
+                 unit->data.count(find(t->tau[0])->D.D));
         }
         //        for (auto &fn : fns) {
-        //          cerr << "case " << fn.first << " : " << to_string(fn.second)
+        //          cerr << "case " << fn.first << " : " <<
+        //          to_string(fn.second)
         //          << endl;
         //        }
         //        cerr << "gadt : " << to_string(gadt) << endl;

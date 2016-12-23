@@ -32,20 +32,5 @@ Existential Types are supported now.
 
 Rank-N Types are supported now.
 
-Higher Kinded Types are suppoted now, but there are some bugs to be fixed. The following code should work, but does not now.
+Higher Kinded Types are suppoted now.
 
-```
-#!/usr/bin/env bsl
-
-data U{U:U}
-data A a{A:forall a.a->A a}
-data B a b{B:forall a.a->B a a}
-data T a {
-T:forall a.forall b.a b->T a
-}
-let any= ffi ` NULL ` in
-let x = A U in
-let x = B U in
-let t= T x in 
-any
-```
