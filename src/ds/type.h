@@ -145,15 +145,29 @@ shared_ptr<Mono> get_mono(shared_ptr<Poly> t) {
   return t->tau;
 }
 
-shared_ptr<Mono> inst_with_exists(shared_ptr<Mono> tau,
-                                  map<shared_ptr<Mono>, shared_ptr<Mono>> &m) {
+shared_ptr<Mono> inst_get_set(shared_ptr<Poly> sigma,
+                              map<shared_ptr<Mono>, shared_ptr<Mono>> &m,
+                              set<shared_ptr<Mono>> &st);
+
+shared_ptr<Mono> inst(shared_ptr<Mono> tau,
+                      map<shared_ptr<Mono>, shared_ptr<Mono>> &m) {
   tau = find(tau);
   if (is_c(tau)) {
-    auto t = make_shared<Mono>(*tau);
-    for (size_t i = 0; i < tau->tau.size(); i++) {
-      t->tau[i] = inst_with_exists(tau->tau[i], m);
+    if (is_p(tau)) {
+      set<shared_ptr<Mono>> st;
+      auto mo = inst_get_set(tau->sigma, m, st);
+      auto po = new_poly(mo);
+      for (auto f : st) {
+        po = new_poly(f, po);
+      }
+      return new_const(po);
+    } else {
+      auto t = make_shared<Mono>(*tau);
+      for (size_t i = 0; i < tau->tau.size(); i++) {
+        t->tau[i] = inst(tau->tau[i], m);
+      }
+      return t;
     }
-    return t;
   } else {
     if (m.count(tau)) {
       return m[tau];
@@ -163,41 +177,41 @@ shared_ptr<Mono> inst_with_exists(shared_ptr<Mono> tau,
   }
 }
 
-shared_ptr<Mono> inst_with_exists(shared_ptr<Poly> sigma,
-                                  map<shared_ptr<Mono>, shared_ptr<Mono>> &m) {
+shared_ptr<Mono> inst(shared_ptr<Poly> sigma,
+                      map<shared_ptr<Mono>, shared_ptr<Mono>> &m) {
   if (sigma->is_mono) {
-    return inst_with_exists(sigma->tau, m);
+    return inst(sigma->tau, m);
   } else {
-    if (!m.count(find(sigma->alpha))) {
-      m[find(sigma->alpha)] = new_forall_var();
-    }
-    return inst_with_exists(sigma->sigma, m);
+    assert(!m.count(sigma->alpha));
+    m[sigma->alpha] = new_forall_var();
+    return inst(sigma->sigma, m);
   }
 }
 
 shared_ptr<Mono> inst(shared_ptr<Poly> sigma) {
   map<shared_ptr<Mono>, shared_ptr<Mono>> m;
-  return inst_with_exists(sigma, m);
+  return inst(sigma, m);
 }
 
 shared_ptr<Mono> inst_get_set(shared_ptr<Poly> sigma,
                               map<shared_ptr<Mono>, shared_ptr<Mono>> &m,
                               set<shared_ptr<Mono>> &st) {
   if (sigma->is_mono) {
-    return inst_with_exists(sigma->tau, m);
+    return inst(sigma->tau, m);
   } else {
-    if (!m.count(find(sigma->alpha))) {
-      m[find(sigma->alpha)] = new_forall_var();
-      st.insert(m[find(sigma->alpha)]);
-    }
-    return inst_with_exists(sigma->sigma, m);
+    assert(!m.count(sigma->alpha));
+    m[sigma->alpha] = new_forall_var();
+    st.insert(m[sigma->alpha]);
+    auto r = inst_get_set(sigma->sigma, m, st);
+    m.erase(sigma->alpha);
+    return r;
   }
 }
 
 shared_ptr<Mono> inst_get_set(shared_ptr<Poly> sigma,
                               set<shared_ptr<Mono>> &st) {
   map<shared_ptr<Mono>, shared_ptr<Mono>> m;
-  return inst_with_exists(sigma, m);
+  return inst_get_set(sigma, m, st);
 }
 
 shared_ptr<Mono> inst_with_exists(shared_ptr<Poly> sigma,
@@ -206,7 +220,7 @@ shared_ptr<Mono> inst_with_exists(shared_ptr<Poly> sigma,
   for (auto e : exists) {
     m[e] = new_exists_var();
   }
-  return inst_with_exists(sigma, m);
+  return inst(sigma, m);
 }
 
 void ftv(set<shared_ptr<Mono>> &, shared_ptr<Poly>);
@@ -214,8 +228,12 @@ void ftv(set<shared_ptr<Mono>> &, shared_ptr<Poly>);
 void ftv(set<shared_ptr<Mono>> &f, shared_ptr<Mono> tau) {
   tau = find(tau);
   if (is_c(tau)) {
-    for (size_t i = 0; i < tau->tau.size(); i++) {
-      ftv(f, tau->tau[i]);
+    if (is_p(tau)) {
+      ftv(f, tau->sigma);
+    } else {
+      for (size_t i = 0; i < tau->tau.size(); i++) {
+        ftv(f, tau->tau[i]);
+      }
     }
   } else if (is_f(tau)) {
     f.insert(tau);

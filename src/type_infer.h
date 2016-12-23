@@ -188,9 +188,8 @@ struct TypeInfer {
     set<shared_ptr<Mono>> f;
     for (auto &c : context.c) {
       set<shared_ptr<Mono>> fi;
-      if (context.has_env(c.first)) {
-        ftv(fi, context.get_env(c.first));
-      }
+      assert(context.has_env(c.first));
+      ftv(fi, context.get_env(c.first));
       f.insert(fi.begin(), fi.end());
     }
     set<shared_ptr<Mono>> fp;
@@ -204,7 +203,7 @@ struct TypeInfer {
         m[f] = new_forall_var();
       }
     }
-    auto g = new_poly(inst_with_exists(tau, m));
+    auto g = new_poly(inst(tau, m));
     for (auto f : m) {
       g = new_poly(f.second, g);
     }
@@ -481,10 +480,10 @@ struct TypeInfer {
         } else {
           context.set_env(e->x, gen(ty1));
         }
-        //        cerr << "//" << e->x << " : "
-        //             << (e->e1->sig != nullptr ? to_string(e->e1->sig)
-        //                                       : to_string(gen(ty1)))
-        //             << endl;
+        cerr << "//" << e->x << " : "
+             << (e->e1->sig != nullptr ? to_string(e->e1->sig)
+                                       : to_string(gen(ty1)))
+             << endl;
         ty2 = infer(e->e2, sig);
         ty = ty2;
         context.unset_env(e->x);
