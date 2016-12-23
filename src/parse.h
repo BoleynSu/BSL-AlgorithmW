@@ -77,7 +77,7 @@ struct Parser {
       if (m.count(t.data)) {
         mo = m[t.data];
       } else {
-        mo = new_const(t.data);
+        mo = new_const(t.data, new_kind());
       }
     } else {
       expect(TokenType::LEFT_PARENTHESIS);
@@ -85,7 +85,7 @@ struct Parser {
       if (po->is_mono) {
         mo = po->tau;
       } else {
-        mo = new_const(po);
+        mo = new_const(po, new_kind());
       }
       expect(TokenType::RIGHT_PARENTHESIS);
     }
@@ -97,7 +97,26 @@ struct Parser {
           if (m.count(t.data)) {
             mo = m[t.data];
           } else {
-            mo = new_const(t.data);
+            mo = new_const(t.data, new_kind());
+          }
+        } else {
+          expect(TokenType::LEFT_PARENTHESIS);
+          mo = parse_monotype(m);
+          expect(TokenType::RIGHT_PARENTHESIS);
+        }
+        t1->tau.push_back(mo);
+      }
+      mo = t1;
+    } else if (match(TokenType::IDENTIFIER) ||
+               match(TokenType::LEFT_PARENTHESIS)) {
+      auto t1 = new_const(mo, new_kind());
+      while (match(TokenType::IDENTIFIER) ||
+             match(TokenType::LEFT_PARENTHESIS)) {
+        if (accept(TokenType::IDENTIFIER)) {
+          if (m.count(t.data)) {
+            mo = m[t.data];
+          } else {
+            mo = new_const(t.data, new_kind());
           }
         } else {
           expect(TokenType::LEFT_PARENTHESIS);
@@ -125,7 +144,7 @@ struct Parser {
         exit(EXIT_FAILURE);
       }
       string tname = t.data;
-      auto alpha = m[tname] = new_forall_var();
+      auto alpha = m[tname] = new_forall_var(new_kind());
       expect(TokenType::DOT);
       auto ret = new_poly(alpha, parse_polytype(m));
       m.erase(tname);

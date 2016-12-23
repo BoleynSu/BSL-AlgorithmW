@@ -12,14 +12,27 @@
 
 using namespace std;
 
+struct Kind {
+  shared_ptr<Kind> par;
+  bool is_const;
+  bool is_arrow;
+  string k;
+  shared_ptr<Kind> left, right;
+};
+
 struct Poly;
 
 struct Mono {
   shared_ptr<Mono> par;
+  shared_ptr<Kind> kind;
   bool is_const;
   bool is_poly;
   shared_ptr<Poly> sigma;
-  string D;
+  struct {
+    bool is_const;
+    string D;
+    shared_ptr<Mono> d;
+  } D;
   vector<shared_ptr<Mono>> tau;
   bool is_forall;
 };
@@ -32,11 +45,14 @@ struct Poly {
 };
 
 bool is_c(shared_ptr<Mono> x) { return x->is_const; }
+bool has_cd(shared_ptr<Mono> x) {
+  return x->is_const && !x->is_poly && x->D.is_const;
+}
 bool is_p(shared_ptr<Mono> x) { return x->is_const && x->is_poly; }
 bool is_f(shared_ptr<Mono> x) { return (!x->is_const) && x->is_forall; }
 bool is_e(shared_ptr<Mono> x) { return (!x->is_const) && (!x->is_forall); }
 bool is_fun(shared_ptr<Mono> x) {
-  return x->is_const && !x->is_poly && x->D == "->";
+  return x->is_const && !x->is_poly && x->D.is_const && x->D.D == "->";
 }
 
 shared_ptr<Mono> find(shared_ptr<Mono> x) {
@@ -45,6 +61,30 @@ shared_ptr<Mono> find(shared_ptr<Mono> x) {
     return x->par;
   } else {
     return x;
+  }
+}
+
+shared_ptr<Kind> find(shared_ptr<Kind> x) {
+  if (x->par != nullptr) {
+    x->par = find(x->par);
+    return x->par;
+  } else {
+    return x;
+  }
+}
+
+string to_string(shared_ptr<Kind> kind) {
+  kind = find(kind);
+  if (kind->is_const) {
+    if (kind->is_arrow) {
+      return "(" + to_string(kind->left) + "->" + to_string(kind->right) + ")";
+    } else {
+      return kind->k;
+    }
+  } else {
+    stringstream s;
+    s << "k" << kind;
+    return s.str();
   }
 }
 
@@ -60,7 +100,12 @@ string to_string(shared_ptr<Mono> tau) {
         return "(" + to_string(tau->tau[0]) + ")->(" + to_string(tau->tau[1]) +
                ")";
       } else {
-        string ret = tau->D;
+        string ret;
+        if (tau->D.is_const) {
+          ret = tau->D.D;
+        } else {
+          ret = to_string(tau->D.d);
+        }
         for (auto t : tau->tau) {
           ret += " (" + to_string(t) + ")";
         }
@@ -85,39 +130,70 @@ string to_string(shared_ptr<Poly> sigma) {
   }
 }
 
-shared_ptr<Mono> new_const(const string &D) {
+shared_ptr<Kind> new_kind() {
+  auto k = make_shared<Kind>();
+  k->is_const = false;
+  return k;
+}
+
+shared_ptr<Kind> new_const_kind() {
+  auto k = make_shared<Kind>();
+  k->is_const = true;
+  k->k = "*";
+  return k;
+}
+
+shared_ptr<Kind> new_kind(shared_ptr<Kind> l, shared_ptr<Kind> r) {
+  auto k = make_shared<Kind>();
+  k->is_const = true;
+  k->is_arrow = true;
+  k->left = l;
+  k->right = r;
+  return k;
+}
+
+shared_ptr<Mono> new_const(const string &D, shared_ptr<Kind> kind) {
   auto t = make_shared<Mono>();
+  t->kind = kind;
   t->is_const = true;
   t->is_poly = false;
-  t->D = D;
+  t->D.is_const = true;
+  t->D.D = D;
   return t;
 }
 
-shared_ptr<Mono> new_const(shared_ptr<Poly> sigma) {
+shared_ptr<Mono> new_const(shared_ptr<Mono> d, shared_ptr<Kind> kind) {
   auto t = make_shared<Mono>();
+  t->kind = kind;
+  t->is_const = true;
+  t->is_poly = false;
+  t->D.is_const = false;
+  t->D.d = d;
+  return t;
+}
+
+shared_ptr<Mono> new_const(shared_ptr<Poly> sigma, shared_ptr<Kind> kind) {
+  auto t = make_shared<Mono>();
+  t->kind = kind;
   t->is_const = true;
   t->is_poly = true;
   t->sigma = sigma;
   return t;
 }
 
-shared_ptr<Mono> new_fun() {
-  auto t = make_shared<Mono>();
-  t->is_const = true;
-  t->is_poly = false;
-  t->D = "->";
-  return t;
-}
+shared_ptr<Mono> new_fun() { return new_const("->", new_const_kind()); }
 
-shared_ptr<Mono> new_forall_var() {
+shared_ptr<Mono> new_forall_var(shared_ptr<Kind> kind) {
   auto t = make_shared<Mono>();
+  t->kind = kind;
   t->is_const = false;
   t->is_forall = true;
   return t;
 }
 
-shared_ptr<Mono> new_exists_var() {
+shared_ptr<Mono> new_exists_var(shared_ptr<Kind> kind) {
   auto t = make_shared<Mono>();
+  t->kind = kind;
   t->is_const = false;
   t->is_forall = false;
   return t;
@@ -160,7 +236,7 @@ shared_ptr<Mono> inst(shared_ptr<Mono> tau,
       for (auto f : st) {
         po = new_poly(f, po);
       }
-      return new_const(po);
+      return new_const(po, mo->kind);
     } else {
       auto t = make_shared<Mono>(*tau);
       for (size_t i = 0; i < tau->tau.size(); i++) {
@@ -183,7 +259,7 @@ shared_ptr<Mono> inst(shared_ptr<Poly> sigma,
     return inst(sigma->tau, m);
   } else {
     if (!m.count(sigma->alpha)) {
-      m[sigma->alpha] = new_forall_var();
+      m[sigma->alpha] = new_forall_var(sigma->alpha->kind);
     } else {
       assert(is_e(m[sigma->alpha]));
     }
@@ -203,7 +279,7 @@ shared_ptr<Mono> inst_get_set(shared_ptr<Poly> sigma,
     return inst(sigma->tau, m);
   } else {
     if (!m.count(sigma->alpha)) {
-      m[sigma->alpha] = new_forall_var();
+      m[sigma->alpha] = new_forall_var(sigma->alpha->kind);
     } else {
       assert(is_e(m[sigma->alpha]));
     }
@@ -224,7 +300,7 @@ shared_ptr<Mono> inst_with_exists(shared_ptr<Poly> sigma,
                                   set<shared_ptr<Mono>> &exists) {
   map<shared_ptr<Mono>, shared_ptr<Mono>> m;
   for (auto e : exists) {
-    m[e] = new_exists_var();
+    m[e] = new_exists_var(e->kind);
   }
   return inst(sigma, m);
 }
