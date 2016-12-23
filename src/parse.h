@@ -284,9 +284,11 @@ struct Parser {
     return expr;
   }
 
-  shared_ptr<Ffi> parse_ffi() {
+  shared_ptr<Expr> parse_ffi() {
     expect(TokenType::FFI);
-    auto ffi = make_shared<Ffi>();
+    auto expr = make_shared<Expr>();
+    expr->T = ExprType::FFI;
+    expr->ffi = make_shared<Ffi>();
     stringstream s(t.data);
     s.get();
     s.get();
@@ -294,19 +296,19 @@ struct Parser {
     string sep;
     s >> sep;
     size_t a = t.data.find(sep);
-    ffi->source =
+    expr->ffi->source =
         t.data.substr(a + sep.size(), t.data.size() - (a + 2 * sep.size()));
     size_t idx = 0;
-    while (idx < ffi->source.length() &&
-           (idx = ffi->source.find("$", idx)) != string::npos) {
-      if (++idx < ffi->source.length()) {
-        char c = ffi->source[idx];
+    while (idx < expr->ffi->source.length() &&
+           (idx = expr->ffi->source.find("$", idx)) != string::npos) {
+      if (++idx < expr->ffi->source.length()) {
+        char c = expr->ffi->source[idx];
         if (('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z') || c == '_') {
           string v;
           v.push_back(c);
           idx++;
-          while (idx < ffi->source.length()) {
-            c = ffi->source[idx];
+          while (idx < expr->ffi->source.length()) {
+            c = expr->ffi->source[idx];
             if (!(('0' <= c && c <= '9') || ('A' <= c && c <= 'Z') ||
                   ('a' <= c && c <= 'z') || c == '_' || c == '\'')) {
               break;
@@ -333,7 +335,7 @@ struct Parser {
         exit(EXIT_FAILURE);
       }
     }
-    return ffi;
+    return expr;
   }
   shared_ptr<Expr> parse_expr__() {
     auto expr = make_shared<Expr>();
@@ -416,9 +418,8 @@ struct Parser {
         }
       } while (!match(TokenType::RIGHT_BRACE));
       expect(TokenType::RIGHT_BRACE);
-    } else if (match(TokenType::FFI)) {
-      expr->T = ExprType::FFI;
-      expr->ffi = parse_ffi();
+    } else {
+      expr = parse_ffi();
     }
     return expr;
   }
