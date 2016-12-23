@@ -480,10 +480,10 @@ struct TypeInfer {
         } else {
           context.set_env(e->x, gen(ty1));
         }
-        cerr << "//" << e->x << " : "
-             << (e->e1->sig != nullptr ? to_string(e->e1->sig)
-                                       : to_string(gen(ty1)))
-             << endl;
+        //        cerr << "//" << e->x << " : "
+        //             << (e->e1->sig != nullptr ? to_string(e->e1->sig)
+        //                                       : to_string(gen(ty1)))
+        //             << endl;
         ty2 = infer(e->e2, sig);
         ty = ty2;
         context.unset_env(e->x);
@@ -611,7 +611,10 @@ struct TypeInfer {
           if (unify(inst(gadt), fn, nullptr)) {
             if (fns.count(c->name)) {
               set<shared_ptr<Mono>> st;
-              if (!unify(fn, inst_get_set(fns[c->name], st), &cerr, &st)) {
+              if (!unify(inst_get_set(gen(fn), st), inst(fns[c->name]), &cerr,
+                         &st)) {
+                cerr << "here" << to_string(fn) << " "
+                     << to_string(inst(fns[c->name])) << endl;
                 string data = to_string(e, 0, "  ");
                 if (data.length() > 78) {
                   data = data.substr(0, 75) + "...";

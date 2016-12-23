@@ -182,8 +182,11 @@ shared_ptr<Mono> inst(shared_ptr<Poly> sigma,
   if (sigma->is_mono) {
     return inst(sigma->tau, m);
   } else {
-    assert(!m.count(sigma->alpha));
-    m[sigma->alpha] = new_forall_var();
+    if (!m.count(sigma->alpha)) {
+      m[sigma->alpha] = new_forall_var();
+    } else {
+      assert(is_e(m[sigma->alpha]));
+    }
     return inst(sigma->sigma, m);
   }
 }
@@ -199,8 +202,11 @@ shared_ptr<Mono> inst_get_set(shared_ptr<Poly> sigma,
   if (sigma->is_mono) {
     return inst(sigma->tau, m);
   } else {
-    assert(!m.count(sigma->alpha));
-    m[sigma->alpha] = new_forall_var();
+    if (!m.count(sigma->alpha)) {
+      m[sigma->alpha] = new_forall_var();
+    } else {
+      assert(is_e(m[sigma->alpha]));
+    }
     st.insert(m[sigma->alpha]);
     auto r = inst_get_set(sigma->sigma, m, st);
     m.erase(sigma->alpha);
