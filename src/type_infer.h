@@ -435,18 +435,20 @@ struct TypeInfer {
               } else {
                 a->D.d = find(a->D.d);
                 b->D.d = find(b->D.d);
-                if (st != nullptr && st->count(b->D.d)) {
-                  if (st != nullptr && st->count(a->D.d)) {
-                    if (cerr != nullptr) {
-                      (*cerr) << "type error: " << to_string(a) << " !< "
-                              << to_string(b) << endl;
+                if (a->D.d != b->D.d) {
+                  if (st != nullptr && st->count(b->D.d)) {
+                    if (st != nullptr && st->count(a->D.d)) {
+                      if (cerr != nullptr) {
+                        (*cerr) << "type error: " << to_string(a) << " !< "
+                                << to_string(b) << endl;
+                      }
+                      return false;
+                    } else {
+                      a->D.d->par = b->D.d;
                     }
-                    return false;
                   } else {
-                    a->D.d->par = b->D.d;
+                    b->D.d->par = a->D.d;
                   }
-                } else {
-                  b->D.d->par = a->D.d;
                 }
               }
               for (size_t i = 0; i < a->tau.size(); i++) {
