@@ -83,13 +83,6 @@ let MonadMaybe = MkMonad
   Just x -> f x;
   Nothing -> Nothing;
 })
-in
-
-let MonadMaybe = MkMonad
-(\ma -> \f -> case ma of {
-  Just x -> f x;
-  Nothing -> Nothing;
-})
 Just
 in
 
