@@ -771,15 +771,23 @@ struct TypeInfer {
             }
             context.unset_type_env(e->x);
           } else {
+            cerr << "type error: `" << to_string(ty)
+                 << "` is not a function type" << endl;
+            string data = to_string(e, 0, "  ");
+            if (data.length() > 78) {
+              data = data.substr(0, 75) + "...";
+            }
+            cerr << "`" << data << "`" << endl;
+            exit(EXIT_FAILURE);
           }
         } else {
           auto tau = new_forall_var(new_const_kind());
           context.set_type_env(e->x, new_poly(tau));
           ty_ = infer(e->e, nullptr);
+          context.unset_type_env(e->x);
           ty = new_fun();
           ty->tau.push_back(tau);
           ty->tau.push_back(ty_);
-          context.unset_type_env(e->x);
         }
         break;
       }
@@ -797,8 +805,8 @@ struct TypeInfer {
         //                                                        to_string(gen(ty1)))
         //             << endl;
         ty2 = infer(e->e2, sig);
-        ty = ty2;
         context.unset_type_env(e->x);
+        ty = ty2;
         break;
       }
       case ExprType::REC: {
@@ -813,7 +821,20 @@ struct TypeInfer {
           }
         }
         for (auto &xe : e->xes) {
-          infer(xe.second, nullptr);
+          auto ty_ = infer(xe.second, nullptr);
+          if (xe.second->sig == nullptr) {
+            if (!unify(tys[xe.first], ty_, &cerr)) {
+              string data = to_string(e, 0, "  ");
+              if (data.length() > 78) {
+                data = data.substr(0, 75) + "...";
+              }
+              cerr << "`" << data << "`" << endl;
+              exit(EXIT_FAILURE);
+            }
+          }
+        }
+        for (auto &xe : e->xes) {
+          context.unset_type_env(xe.first);
         }
         for (auto &xe : e->xes) {
           auto t = xe.second->sig != nullptr ? inst(xe.second->sig)
@@ -830,9 +851,6 @@ struct TypeInfer {
           //               << endl;
         }
         for (auto &xe : e->xes) {
-          context.unset_type_env(xe.first);
-        }
-        for (auto &xe : e->xes) {
           if (xe.second->sig != nullptr) {
             context.set_type_env(xe.first, xe.second->sig);
           } else {
@@ -840,10 +858,10 @@ struct TypeInfer {
           }
         }
         ty_ = infer(e->e, sig);
-        ty = ty_;
         for (auto &xe : e->xes) {
           context.unset_type_env(xe.first);
         }
+        ty = ty_;
         break;
       }
       case ExprType::CASE: {
