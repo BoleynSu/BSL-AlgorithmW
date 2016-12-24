@@ -459,7 +459,7 @@ struct TypeInfer {
               return true;
             } else {
               if (a->tau.size() > b->tau.size()) {
-                if (is_c(b)) {
+                if (is_cd(b)) {
                   if (cerr != nullptr) {
                     (*cerr) << "type error: " << to_string(a)
                             << " /= " << to_string(b) << endl;
@@ -469,7 +469,7 @@ struct TypeInfer {
                 b->D.d = find(b->D.d);
                 shared_ptr<Kind> k;
                 shared_ptr<Mono> h, hnt;
-                if (is_c(a)) {
+                if (is_cd(a)) {
                   k = context.kind[a->D.D];
                   h = new_const(a->D.D, k);
                   hnt = new_const(a->D.D, k);
@@ -511,7 +511,7 @@ struct TypeInfer {
                   return true;
                 }
               } else {
-                if (is_c(a)) {
+                if (is_cd(a)) {
                   if (cerr != nullptr) {
                     (*cerr) << "type error: " << to_string(a)
                             << " /= " << to_string(b) << endl;
@@ -521,7 +521,7 @@ struct TypeInfer {
                 a->D.d = find(a->D.d);
                 shared_ptr<Kind> k;
                 shared_ptr<Mono> h, hnt;
-                if (is_c(b)) {
+                if (is_cd(b)) {
                   k = context.kind[b->D.D];
                   h = new_const(b->D.D, k);
                   hnt = new_const(b->D.D, k);
