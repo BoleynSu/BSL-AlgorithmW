@@ -93,6 +93,13 @@ struct TypeInfer {
              set<shared_ptr<Mono>> &st) {
     if (is_fun(p)) {
       assert(p->tau.size() == 2);
+      if (is_p(p->tau[1])) {
+        cerr << "type error: a `forall` can be moved to left hand of `->`"
+             << endl
+             << "in constructor " << c->name << ":" << to_string(c->sig)
+             << endl;
+        exit(EXIT_FAILURE);
+      }
       check(da, c, p->tau[1], st);
       if (!unify(p->tau[1]->kind, new_const_kind(), &cerr)) {
         cerr << "in constructor " << c->name << ":" << to_string(c->sig)
@@ -101,8 +108,8 @@ struct TypeInfer {
       }
       check(c->sig, p->tau[0], st);
       if (!unify(p->tau[0]->kind, new_const_kind(), &cerr)) {
-        cerr << "type error: in constructor " << c->name << ":"
-             << to_string(c->sig) << endl;
+        cerr << "in constructor " << c->name << ":" << to_string(c->sig)
+             << endl;
         exit(EXIT_FAILURE);
       }
       p->kind = new_const_kind();
@@ -208,6 +215,12 @@ struct TypeInfer {
             check(t, p->tau[0], st);
             if (!unify(p->tau[0]->kind, new_const_kind(), &cerr)) {
               cerr << "in signature " << to_string(t) << endl;
+              exit(EXIT_FAILURE);
+            }
+            if (is_p(p->tau[1])) {
+              cerr << "type error: a `forall` can be moved to left hand of `->`"
+                   << endl
+                   << "in signature " << to_string(t) << endl;
               exit(EXIT_FAILURE);
             }
             check(t, p->tau[1], st);
