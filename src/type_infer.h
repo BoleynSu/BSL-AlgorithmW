@@ -54,6 +54,7 @@ struct TypeInfer {
   } context;
   shared_ptr<Unit> unit;
   TypeInfer(shared_ptr<Unit> unit) : unit(unit) {
+    context.kind["->"] = new_kind(new_const_kind(), new_const_kind());
     for (auto dai : unit->data) {
       auto da = dai.second;
       context.kind[da->name] = new_kind();
