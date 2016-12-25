@@ -53,33 +53,75 @@ rec runIO = \x -> case x of {
   }
 } in
 
-let not = \x -> case x of {
-  True -> False;
-  False -> True
+rec rev_append = \l1 -> \l2 -> case l1 of {
+  Nil -> l2;
+  Cons h t -> rev_append t (Cons h l2)
 } in
 
-let less:Int->Int->Bool = \a -> \b -> ffi ` ((((int) $a) < ((int) $b)) ? $True : $False) ` in
+let length:forall a.List a->Int =
+  rec length = \n -> \l -> case l of {
+    Nil -> n;
+    Cons x xs -> length ffi ` 1+$n ` xs
+  } in length ffi ` 0 `
+in
 
-let sort = \less ->
-  rec concat = \a -> \b -> case a of {
-    Nil -> b;
-    Cons x xs -> concat xs (Cons x b)
-  } in
-  let filter = \f ->
-    rec filter = \acc -> \list -> case list of {
-      Nil -> acc;
-      Cons x xs -> case f x of {
-        True -> filter (Cons x acc) xs;
-        False -> filter acc xs
-      }
-    } in filter Nil
-  in
-  let notLess = \x -> \y -> not (less x y) in
-  rec sort = \less -> \notLess -> \list -> case list of {
+rec drop:forall a.Int->List a->List a = \n -> \l -> case ffi ` ((int)$n)==0?$True:$False` of {
+  True -> l;
+  False -> case l of {
     Nil -> Nil;
-    Cons x xs -> concat (sort notLess less (filter (notLess x) xs))
-                 (Cons x (sort less  notLess (filter (less x) xs)))
-  } in sort less notLess
+    Cons x xs -> drop ffi ` ((int)$n)-1 ` xs;
+  }
+} in
+
+let sort = \less -> \list ->
+  rec rev_merge = \l1 -> \l2 -> \acc -> case l1 of {
+    Nil -> rev_append l2 acc;
+    Cons h1 t1 -> case l2 of {
+      Nil -> rev_append l1 acc;
+      Cons h2 t2 -> case less h1 h2 of {
+        True -> rev_merge t1 l2 (Cons h1 acc);
+        False -> rev_merge l1 t2 (Cons h2 acc)
+      }
+    }
+  } in
+  rec rev_merge_rev = \l1 -> \l2 -> \acc -> case l1 of {
+    Nil -> rev_append l2 acc;
+    Cons h1 t1 -> case l2 of {
+      Nil -> rev_append l1 acc;
+      Cons h2 t2 -> case less h1 h2 of {
+        False -> rev_merge_rev t1 l2 (Cons h1 acc);
+        True -> rev_merge_rev l1 t2 (Cons h2 acc)
+      }
+    }
+  } in
+  rec sort = \n -> \l ->
+    case ffi ` ((int)$n)<2?$True:$False ` of {
+      True -> case l of {Nil->Nil;Cons h t->Cons h Nil};
+      False ->
+        let n1 = ffi ` ((int)$n)>>1 ` in
+        let n2 = ffi ` ((int)$n) - ((int)$n1) ` in
+        let l2 = drop n1 l in
+        let s1 = rev_sort n1 l in
+        let s2 = rev_sort n2 l2 in
+        rev_merge_rev s1 s2 Nil
+    }
+  and rev_sort = \n -> \l ->
+    case ffi ` ((int)$n)<2?$True:$False ` of {
+      True -> case l of {Nil->Nil;Cons h t->Cons h Nil};
+      False ->
+        let n1 = ffi ` ((int)$n)>>1 ` in
+        let n2 = ffi ` ((int)$n) - ((int)$n1) ` in
+        let l2 = drop n1 l in
+        let s1 = sort n1 l in
+        let s2 = sort n2 l2 in
+        rev_merge s1 s2 Nil
+    }
+  in
+  let l = length list in
+  case ffi ` ((int)$l)<2?$True:$False ` of {
+    True -> list;
+    False -> sort l list
+  }
 in
 
 let getList =
@@ -93,6 +135,8 @@ rec putList = \list -> case list of {
   Cons x xs -> bind (putInt x) \_ ->
                putList xs
 } in
+
+let less:Int->Int->Bool = \a -> \b -> ffi ` ((((int) $a) < ((int) $b)) ? $True : $False) ` in
 
 let main = bind getList \list ->
                 putList (sort less list)
