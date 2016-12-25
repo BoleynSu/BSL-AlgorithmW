@@ -731,7 +731,8 @@ struct TypeInfer {
             cerr << "`" << data << "`" << endl;
             exit(EXIT_FAILURE);
           }
-          if (!unify(inst(find(find(ty1)->tau[0])->sigma), ty2, &cerr, &st)) {
+          if (!unify(inst_get_set(find(find(ty1)->tau[0])->sigma, st), ty2,
+                     &cerr, &st)) {
             string data = to_string(e, 0, "  ");
             if (data.length() > 78) {
               data = data.substr(0, 75) + "...";
