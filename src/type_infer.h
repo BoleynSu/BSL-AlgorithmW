@@ -77,7 +77,7 @@ struct TypeInfer {
     for (auto dai : unit->data) {
       auto da = dai.second;
       for (auto &c : da->constructors) {
-        //        cerr << c->name << " : " << to_string(c->sig) << endl;
+        cerr << c->name << " : " << to_string(c->sig) << endl;
         context.set_type_env(c->name, c->sig);
       }
     }
@@ -294,7 +294,9 @@ struct TypeInfer {
     }
     auto g = new_poly(inst(tau, m));
     for (auto f : m) {
-      g = new_poly(f.second, g);
+      if (is_f(f.second)) {
+        g = new_poly(f.second, g);
+      }
     }
     return g;
   }
@@ -689,11 +691,25 @@ struct TypeInfer {
             }
           }
         } else {
-          if (cerr != nullptr) {
-            (*cerr) << "type error: " << to_string(a) << " /= " << to_string(b)
-                    << endl;
+          if (!unify(a->kind, b->kind, cerr)) {
+            return false;
+          } else {
+            if (st != nullptr && st->count(b)) {
+              if (st != nullptr && st->count(a)) {
+                if (cerr != nullptr) {
+                  (*cerr) << "type error: " << to_string(a) << " !< "
+                          << to_string(b) << endl;
+                }
+                return false;
+              } else {
+                a->par = b;
+                return true;
+              }
+            } else {
+              b->par = a;
+              return true;
+            }
           }
-          return false;
         }
       }
     } else {
@@ -801,11 +817,9 @@ struct TypeInfer {
         } else {
           context.set_type_env(e->x, gen(ty1));
         }
-        //        cerr << e->x << " : " << (e->e1->sig != nullptr ?
-        //        to_string(e->e1->sig)
-        //                                                        :
-        //                                                        to_string(gen(ty1)))
-        //             << endl;
+        cerr << e->x << " : " << (e->e1->sig != nullptr ? to_string(e->e1->sig)
+                                                        : to_string(gen(ty1)))
+             << endl;
         ty2 = infer(e->e2, sig);
         context.unset_type_env(e->x);
         ty = ty2;
@@ -891,11 +905,11 @@ struct TypeInfer {
               context.set_type_env(pes.first[i], taus[i]->sigma);
             }
           }
-          tys[pes_.first] = infer(pes.second, nullptr);
+          auto ty_ = infer(pes.second, nullptr);
           for (size_t i = 0; i < c->arg; i++) {
             context.unset_type_env(pes.first[i]);
           }
-          fn->tau.push_back(tys[pes_.first]);
+          fn->tau.push_back(ty_);
           fns[pes_.first] = gen(fn);
         }
         auto gadt = e->gadt;

@@ -255,6 +255,9 @@ shared_ptr<Mono> inst(shared_ptr<Mono> tau,
       return t;
     }
   } else {
+    if (!is_f(tau) && !m.count(tau)) {
+      m[tau] = new_exists_var(tau->kind);
+    }
     if (m.count(tau)) {
       return m[tau];
     } else {
