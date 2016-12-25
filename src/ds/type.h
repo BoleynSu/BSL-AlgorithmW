@@ -255,9 +255,6 @@ shared_ptr<Mono> inst(shared_ptr<Mono> tau,
       return t;
     }
   } else {
-    if (!is_f(tau) && !m.count(tau)) {
-      m[tau] = new_exists_var(tau->kind);
-    }
     if (m.count(tau)) {
       return m[tau];
     } else {
@@ -310,10 +307,12 @@ shared_ptr<Mono> inst_get_set(shared_ptr<Poly> sigma,
 }
 
 shared_ptr<Mono> inst_with_exists(shared_ptr<Poly> sigma,
-                                  set<shared_ptr<Mono>> &exists) {
+                                  set<shared_ptr<Mono>> &exists,
+                                  set<shared_ptr<Mono>> &exists_var) {
   map<shared_ptr<Mono>, shared_ptr<Mono>> m;
   for (auto e : exists) {
     m[e] = new_exists_var(e->kind);
+    exists_var.insert(m[e]);
   }
   return inst(sigma, m);
 }
@@ -333,7 +332,7 @@ void ftv(set<shared_ptr<Mono>> &f, shared_ptr<Mono> tau) {
         ftv(f, tau->tau[i]);
       }
     }
-  } else if (is_f(tau)) {
+  } else {
     f.insert(tau);
   }
 }

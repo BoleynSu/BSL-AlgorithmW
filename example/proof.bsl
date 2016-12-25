@@ -10,14 +10,15 @@ data HasKiller {
   fact2:forall x.forall y.Kill x y->HasKiller
 }
 
-let fact3 = \x -> case x of { --forall x.exists y.WillDie x->Kill y x
-  fact1 y -> y
-} in
-let fact4:Kill X Y = ffi ` NULL ` in
+let fact3:Kill X Y = ffi ` NULL ` in
 
-let conc1 = fact1 fact4 in -- leads to WillDie Y
-let conc2 = fact3 conc1 in -- leads to exists x.Kill x Y
-let conc3 = fact2 conc2 in -- leads to HasKiller
+let conc1 = fact1 fact3 in --conc1:WillDie Y
 
-conc3
-
+case conc1 of {
+  fact1 conc2 -> --conc2:exists x.Kill x Y
+    let conc3 = fact2 conc2 in --conc3:HasKiller
+    let conc2_ = conc2 in
+    let eq:forall a.a->a->a=\a-> \a -> a in
+    let _ = eq conc2 conc2_ in
+    conc3
+}

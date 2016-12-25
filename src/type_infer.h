@@ -77,7 +77,7 @@ struct TypeInfer {
     for (auto dai : unit->data) {
       auto da = dai.second;
       for (auto &c : da->constructors) {
-        cerr << c->name << " : " << to_string(c->sig) << endl;
+        //        cerr << c->name << " : " << to_string(c->sig) << endl;
         context.set_type_env(c->name, c->sig);
       }
     }
@@ -285,7 +285,8 @@ struct TypeInfer {
     check(t, t, st);
   }
 
-  shared_ptr<Poly> gen(shared_ptr<Mono> tau) {
+  shared_ptr<Poly> gen(shared_ptr<Mono> tau,
+                       set<shared_ptr<Mono>> *exists_var = nullptr) {
     tau = find(tau);
     set<shared_ptr<Mono>> f;
     for (auto &c : context.type) {
@@ -301,6 +302,12 @@ struct TypeInfer {
     }
     map<shared_ptr<Mono>, shared_ptr<Mono>> m;
     for (auto f : fp) {
+      if (exists_var != nullptr && exists_var->count(f)) {
+        cerr << "type error: an existential type should not escape its scope"
+             << endl;
+        cerr << to_string(tau) << endl;
+        exit(EXIT_FAILURE);
+      }
       if (is_f(f)) {
         m[f] = new_forall_var(f->kind);
       }
@@ -708,25 +715,11 @@ struct TypeInfer {
             }
           }
         } else {
-          if (!unify(a->kind, b->kind, cerr)) {
-            return false;
-          } else {
-            if (st != nullptr && st->count(b)) {
-              if (st != nullptr && st->count(a)) {
-                if (cerr != nullptr) {
-                  (*cerr) << "type error: " << to_string(a)
-                          << " != " << to_string(b) << endl;
-                }
-                return false;
-              } else {
-                a->par = b;
-                return true;
-              }
-            } else {
-              b->par = a;
-              return true;
-            }
+          if (cerr != nullptr) {
+            (*cerr) << "type error: " << to_string(a) << " /= " << to_string(b)
+                    << endl;
           }
+          return false;
         }
       }
     } else {
@@ -848,9 +841,11 @@ struct TypeInfer {
         } else {
           context.set_type_env(e->x, gen(ty1));
         }
-        cerr << e->x << " : " << (e->e1->sig != nullptr ? to_string(e->e1->sig)
-                                                        : to_string(gen(ty1)))
-             << endl;
+        //        cerr << e->x << " : " << (e->e1->sig != nullptr ?
+        //        to_string(e->e1->sig)
+        //                                                        :
+        //                                                        to_string(gen(ty1)))
+        //             << endl;
         ty2 = infer(e->e2, sig);
         context.unset_type_env(e->x);
         ty = ty2;
@@ -925,7 +920,9 @@ struct TypeInfer {
           assert(unit->cons.count(pes_.first));
           auto c = unit->cons[pes_.first];
           assert(c->arg == pes.first.size());
-          auto tau = inst_with_exists(c->sig, context.get_exists(c->name));
+          set<shared_ptr<Mono>> exists_var;
+          auto tau =
+              inst_with_exists(c->sig, context.get_exists(c->name), exists_var);
           vector<shared_ptr<Mono>> taus;
           auto t = tau;
           while (is_fun(t)) {
@@ -946,7 +943,7 @@ struct TypeInfer {
             context.unset_type_env(pes.first[i]);
           }
           fn->tau.push_back(ty_);
-          fns[pes_.first] = gen(fn);
+          fns[pes_.first] = gen(fn, &exists_var);
         }
         auto gadt = e->gadt;
         if (gadt != nullptr) {
@@ -990,7 +987,9 @@ struct TypeInfer {
         //        cerr << "gadt : " << to_string(gadt) << endl;
         for (auto c : unit->data[unit->cons[fns.begin()->first]->data_name]
                           ->constructors) {
-          auto tau = inst_with_exists(c->sig, context.get_exists(c->name));
+          set<shared_ptr<Mono>> exists_var;
+          auto tau =
+              inst_with_exists(c->sig, context.get_exists(c->name), exists_var);
           auto t = tau;
           while (is_fun(t)) {
             t = t->tau[1];
