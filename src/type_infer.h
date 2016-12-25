@@ -725,6 +725,15 @@ struct TypeInfer {
     shared_ptr<Mono> ty;
     if (e->sig != nullptr) {
       check(e->sig);
+      if (sig != nullptr) {
+        cerr << "type error: the signature cannot be here" << endl;
+        string data = to_string(e, 0, "  ");
+        if (data.length() > 78) {
+          data = data.substr(0, 75) + "...";
+        }
+        cerr << "`" << data << "`" << endl;
+        exit(EXIT_FAILURE);
+      }
       sig = e->sig;
     }
     switch (e->T) {
@@ -734,6 +743,11 @@ struct TypeInfer {
           ty = inst(t);
         } else {
           cerr << "type error: " << e->x << " is not in context" << endl;
+          string data = to_string(e, 0, "  ");
+          if (data.length() > 78) {
+            data = data.substr(0, 75) + "...";
+          }
+          cerr << "`" << data << "`" << endl;
           exit(EXIT_FAILURE);
         }
         break;
@@ -861,6 +875,11 @@ struct TypeInfer {
                                              : find(tys[xe.first]);
           if (xe.second->T != ExprType::ABS) {
             cerr << "type error: rec of this type is not supported" << endl;
+            string data = to_string(e, 0, "  ");
+            if (data.length() > 78) {
+              data = data.substr(0, 75) + "...";
+            }
+            cerr << "`" << data << "`" << endl;
             exit(EXIT_FAILURE);
           }
           //          cerr << xe.first << " : "
@@ -925,6 +944,11 @@ struct TypeInfer {
                 unit->data.count(find(t->tau[0])->D.D))) {
             cerr << "type error: invaliad signature for case expression" << endl
                  << to_string(gadt) << endl;
+            string data = to_string(e, 0, "  ");
+            if (data.length() > 78) {
+              data = data.substr(0, 75) + "...";
+            }
+            cerr << "`" << data << "`" << endl;
             exit(EXIT_FAILURE);
           }
         } else {
@@ -1031,6 +1055,11 @@ struct TypeInfer {
               }
               if (!context.has_type_env(v)) {
                 cerr << "type error: " << v << " is not in context" << endl;
+                string data = to_string(e, 0, "  ");
+                if (data.length() > 78) {
+                  data = data.substr(0, 75) + "...";
+                }
+                cerr << "`" << data << "`" << endl;
                 exit(EXIT_FAILURE);
               }
             } else {
