@@ -23,7 +23,7 @@ struct TypeInfer {
     map<string, vector<shared_ptr<Poly>>> type;
     map<string, shared_ptr<Kind>> kind;
     map<string, set<shared_ptr<Mono>>> exists;
-    bool has_type_env(const string &key) {
+    bool has__env(const string &key) {
       auto it = type.find(key);
       if (it != type.end() && it->second.size()) {
         return true;
@@ -31,7 +31,7 @@ struct TypeInfer {
         return false;
       }
     }
-    shared_ptr<Poly> get_type_env(const string &key) {
+    shared_ptr<Poly> get__env(const string &key) {
       auto it = type.find(key);
       if (it != type.end() && it->second.size()) {
         return it->second.back();
@@ -39,10 +39,10 @@ struct TypeInfer {
         assert(false);
       }
     }
-    void set_type_env(const string &key, shared_ptr<Poly> value) {
+    void set__env(const string &key, shared_ptr<Poly> value) {
       type[key].push_back(value);
     }
-    void unset_type_env(const string &key) {
+    void unset__env(const string &key) {
       auto &v = type[key];
       v.pop_back();
       if (v.empty()) {
@@ -77,15 +77,15 @@ struct TypeInfer {
     for (auto dai : unit->data) {
       auto da = dai.second;
       for (auto &c : da->constructors) {
-        //        cerr << c->name << " : " << to_string(c->sig) << endl;
-        context.set_type_env(c->name, c->sig);
+        cerr << c->name << " : " << to_string(c->sig) << endl;
+        context.set__env(c->name, c->sig);
       }
     }
     infer(unit->expr, nullptr);
     for (auto dai : unit->data) {
       auto da = dai.second;
       for (auto &c : da->constructors) {
-        context.unset_type_env(c->name);
+        context.unset__env(c->name);
       }
     }
   }
@@ -291,8 +291,8 @@ struct TypeInfer {
     set<shared_ptr<Mono>> f;
     for (auto &c : context.type) {
       set<shared_ptr<Mono>> fi;
-      assert(context.has_type_env(c.first));
-      ftv(fi, context.get_type_env(c.first));
+      assert(context.has__env(c.first));
+      ftv(fi, context.get__env(c.first));
       f.insert(fi.begin(), fi.end());
     }
     set<shared_ptr<Mono>> fp;
@@ -605,8 +605,16 @@ struct TypeInfer {
               if (!unify(a->kind, b->kind, cerr)) {
                 return false;
               } else {
-                b->par = a;
-                return true;
+                if (st != nullptr && st->count(b)) {
+                  if (cerr != nullptr) {
+                    (*cerr) << "type error: " << to_string(b) << " !< "
+                            << to_string(a) << endl;
+                  }
+                  return false;
+                } else {
+                  b->par = a;
+                  return true;
+                }
               }
             } else {
               if (!unify(a->kind, b->kind, cerr)) {
@@ -680,7 +688,7 @@ struct TypeInfer {
           if (!unify(a->kind, b->kind, cerr)) {
             return false;
           } else {
-            if (st != nullptr && st->count(a)) {
+            if (st != nullptr) {
               if (cerr != nullptr) {
                 (*cerr) << "type error: " << to_string(a) << " !< "
                         << to_string(b) << endl;
@@ -744,8 +752,8 @@ struct TypeInfer {
     }
     switch (e->T) {
       case ExprType::VAR:
-        if (context.has_type_env(e->x)) {
-          auto t = context.get_type_env(e->x);
+        if (context.has__env(e->x)) {
+          auto t = context.get__env(e->x);
           ty = inst(t);
         } else {
           cerr << "type error: " << e->x << " is not in context" << endl;
@@ -759,8 +767,24 @@ struct TypeInfer {
         break;
       case ExprType::APP: {
         shared_ptr<Mono> ty1, ty2;
-        ty1 = infer(e->e1, nullptr);
-        ty2 = infer(e->e2, nullptr);
+        if (sig == nullptr) {
+          ty1 = infer(e->e1, nullptr);
+        } else {
+          vector<shared_ptr<Mono>> mv;
+          auto t = new_fun();
+          t->tau.push_back(new_forall_var(new_const_kind()));
+          auto sig_ = sig;
+          while (!sig_->is_mono) {
+            mv.push_back(sig_->alpha);
+            sig_ = sig_->sigma;
+          }
+          t->tau.push_back(sig_->tau);
+          auto po = new_poly(t);
+          for (auto m : mv) {
+            po = new_poly(m, po);
+          }
+          ty1 = infer(e->e1, po);
+        }
         ty = new_forall_var(new_const_kind());
         if (is_fun(find(ty1)) && is_p(find(find(ty1)->tau[0]))) {
           set<shared_ptr<Mono>> st;
@@ -772,16 +796,9 @@ struct TypeInfer {
             cerr << "`" << data << "`" << endl;
             exit(EXIT_FAILURE);
           }
-          if (!unify(inst_get_set(find(find(ty1)->tau[0])->sigma, st), ty2,
-                     &cerr, &st)) {
-            string data = to_string(e, 0, "  ");
-            if (data.length() > 78) {
-              data = data.substr(0, 75) + "...";
-            }
-            cerr << "`" << data << "`" << endl;
-            exit(EXIT_FAILURE);
-          }
+          ty2 = infer(e->e2, find(find(ty1)->tau[0])->sigma);
         } else {
+          ty2 = infer(e->e2, nullptr);
           auto t = new_fun();
           t->tau.push_back(ty2);
           t->tau.push_back(ty);
@@ -802,16 +819,16 @@ struct TypeInfer {
           ty = inst(sig);
           if (is_fun(ty)) {
             if (is_p(ty->tau[0])) {
-              context.set_type_env(e->x, ty->tau[0]->sigma);
+              context.set__env(e->x, ty->tau[0]->sigma);
             } else {
-              context.set_type_env(e->x, new_poly(ty->tau[0]));
+              context.set__env(e->x, new_poly(ty->tau[0]));
             }
             if (is_p(ty->tau[1])) {
               ty_ = infer(e->e, ty->tau[1]->sigma);
             } else {
               ty_ = infer(e->e, new_poly(ty->tau[1]));
             }
-            context.unset_type_env(e->x);
+            context.unset__env(e->x);
           } else {
             cerr << "type error: `" << to_string(ty)
                  << "` is not of a function type" << endl;
@@ -824,9 +841,9 @@ struct TypeInfer {
           }
         } else {
           auto tau = new_forall_var(new_const_kind());
-          context.set_type_env(e->x, new_poly(tau));
+          context.set__env(e->x, new_poly(tau));
           ty_ = infer(e->e, nullptr);
-          context.unset_type_env(e->x);
+          context.unset__env(e->x);
           ty = new_fun();
           ty->tau.push_back(tau);
           ty->tau.push_back(ty_);
@@ -837,17 +854,15 @@ struct TypeInfer {
         shared_ptr<Mono> ty1, ty2;
         ty1 = infer(e->e1, nullptr);
         if (e->e1->sig != nullptr) {
-          context.set_type_env(e->x, e->e1->sig);
+          context.set__env(e->x, e->e1->sig);
         } else {
-          context.set_type_env(e->x, gen(ty1));
+          context.set__env(e->x, gen(ty1));
         }
-        //        cerr << e->x << " : " << (e->e1->sig != nullptr ?
-        //        to_string(e->e1->sig)
-        //                                                        :
-        //                                                        to_string(gen(ty1)))
-        //             << endl;
+        cerr << e->x << " : " << (e->e1->sig != nullptr ? to_string(e->e1->sig)
+                                                        : to_string(gen(ty1)))
+             << endl;
         ty2 = infer(e->e2, sig);
-        context.unset_type_env(e->x);
+        context.unset__env(e->x);
         ty = ty2;
         break;
       }
@@ -856,10 +871,10 @@ struct TypeInfer {
         shared_ptr<Mono> ty_;
         for (auto &xe : e->xes) {
           if (xe.second->sig != nullptr) {
-            context.set_type_env(xe.first, xe.second->sig);
+            context.set__env(xe.first, xe.second->sig);
           } else {
             tys[xe.first] = new_forall_var(new_const_kind());
-            context.set_type_env(xe.first, new_poly(tys[xe.first]));
+            context.set__env(xe.first, new_poly(tys[xe.first]));
           }
         }
         for (auto &xe : e->xes) {
@@ -876,7 +891,7 @@ struct TypeInfer {
           }
         }
         for (auto &xe : e->xes) {
-          context.unset_type_env(xe.first);
+          context.unset__env(xe.first);
         }
         for (auto &xe : e->xes) {
           auto t = xe.second->sig != nullptr ? inst(xe.second->sig)
@@ -899,14 +914,14 @@ struct TypeInfer {
         }
         for (auto &xe : e->xes) {
           if (xe.second->sig != nullptr) {
-            context.set_type_env(xe.first, xe.second->sig);
+            context.set__env(xe.first, xe.second->sig);
           } else {
-            context.set_type_env(xe.first, gen(tys[xe.first]));
+            context.set__env(xe.first, gen(tys[xe.first]));
           }
         }
         ty_ = infer(e->e, sig);
         for (auto &xe : e->xes) {
-          context.unset_type_env(xe.first);
+          context.unset__env(xe.first);
         }
         ty = ty_;
         break;
@@ -933,14 +948,14 @@ struct TypeInfer {
           fn->tau.push_back(t);
           for (size_t i = 0; i < c->arg; i++) {
             if (!is_p(taus[i])) {
-              context.set_type_env(pes.first[i], new_poly(taus[i]));
+              context.set__env(pes.first[i], new_poly(taus[i]));
             } else {
-              context.set_type_env(pes.first[i], taus[i]->sigma);
+              context.set__env(pes.first[i], taus[i]->sigma);
             }
           }
           auto ty_ = infer(pes.second, nullptr);
           for (size_t i = 0; i < c->arg; i++) {
-            context.unset_type_env(pes.first[i]);
+            context.unset__env(pes.first[i]);
           }
           fn->tau.push_back(ty_);
           fns[pes_.first] = gen(fn, &exists_var);
@@ -1065,7 +1080,7 @@ struct TypeInfer {
                 v.push_back(c);
                 idx++;
               }
-              if (!context.has_type_env(v)) {
+              if (!context.has__env(v)) {
                 cerr << "type error: " << v << " is not in context" << endl;
                 string data = to_string(e, 0, "  ");
                 if (data.length() > 78) {
