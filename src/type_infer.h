@@ -361,8 +361,8 @@ struct TypeInfer {
           } else if (is_p(a)) {
             if (st != nullptr) {
               if (cerr != nullptr) {
-                (*cerr) << "type error: " << to_string(a) << " !< "
-                        << to_string(b) << endl;
+                (*cerr) << "type error: " << to_string(a)
+                        << " /= " << to_string(b) << endl;
               }
               return false;
             } else {
@@ -413,8 +413,10 @@ struct TypeInfer {
                 b->D.d = find(b->D.d);
                 if (st != nullptr && st->count(b->D.d)) {
                   if (cerr != nullptr) {
-                    (*cerr) << "type error: " << to_string(a) << " !< "
-                            << to_string(b) << endl;
+                    (*cerr)
+                        << "type error: " << to_string(b->D.d) << " !< "
+                        << to_string(new_const(a->D.D, context.kind[a->D.D]))
+                        << endl;
                   }
                   return false;
                 } else {
@@ -426,8 +428,10 @@ struct TypeInfer {
                 a->D.d = find(a->D.d);
                 if (st != nullptr && st->count(a->D.d)) {
                   if (cerr != nullptr) {
-                    (*cerr) << "type error: " << to_string(a) << " !< "
-                            << to_string(b) << endl;
+                    (*cerr)
+                        << "type error: " << to_string(a->D.d) << " !< "
+                        << to_string(new_const(b->D.D, context.kind[b->D.D]))
+                        << endl;
                   }
                   return false;
                 } else {
@@ -442,8 +446,8 @@ struct TypeInfer {
                   if (st != nullptr && st->count(b->D.d)) {
                     if (st != nullptr && st->count(a->D.d)) {
                       if (cerr != nullptr) {
-                        (*cerr) << "type error: " << to_string(a) << " !< "
-                                << to_string(b) << endl;
+                        (*cerr) << "type error: " << to_string(a)
+                                << " != " << to_string(b) << endl;
                       }
                       return false;
                     } else {
@@ -493,8 +497,8 @@ struct TypeInfer {
                 }
                 if (st != nullptr && st->count(b->D.d)) {
                   if (cerr != nullptr) {
-                    (*cerr) << "type error: " << to_string(a) << " !< "
-                            << to_string(b) << endl;
+                    (*cerr) << "type error: " << to_string(b->D.d) << " !< "
+                            << to_string(h) << endl;
                   }
                   return false;
                 } else {
@@ -545,8 +549,8 @@ struct TypeInfer {
                 }
                 if (st != nullptr && !st->count(a->D.d)) {
                   if (cerr != nullptr) {
-                    (*cerr) << "type error: " << to_string(a) << " !< "
-                            << to_string(b) << endl;
+                    (*cerr) << "type error: " << to_string(a->D.d) << " !< "
+                            << to_string(h) << endl;
                   }
                   return false;
                 } else {
@@ -590,8 +594,8 @@ struct TypeInfer {
               } else {
                 if (st != nullptr && st->count(b)) {
                   if (cerr != nullptr) {
-                    (*cerr) << "type error: " << to_string(a) << " !< "
-                            << to_string(b) << endl;
+                    (*cerr) << "type error: " << to_string(b) << " !< "
+                            << to_string(a) << endl;
                   }
                   return false;
                 } else {
@@ -639,8 +643,8 @@ struct TypeInfer {
             if (st != nullptr && st->count(b)) {
               if (st != nullptr && st->count(a)) {
                 if (cerr != nullptr) {
-                  (*cerr) << "type error: " << to_string(a) << " !< "
-                          << to_string(b) << endl;
+                  (*cerr) << "type error: " << to_string(a)
+                          << " != " << to_string(b) << endl;
                 }
                 return false;
               } else {
@@ -681,8 +685,8 @@ struct TypeInfer {
           } else {
             if (st != nullptr && st->count(b)) {
               if (cerr != nullptr) {
-                (*cerr) << "type error: " << to_string(a) << " !< "
-                        << to_string(b) << endl;
+                (*cerr) << "type error: " << to_string(b) << " !< "
+                        << to_string(a) << endl;
               }
               return false;
             } else {
@@ -697,8 +701,8 @@ struct TypeInfer {
             if (st != nullptr && st->count(b)) {
               if (st != nullptr && st->count(a)) {
                 if (cerr != nullptr) {
-                  (*cerr) << "type error: " << to_string(a) << " !< "
-                          << to_string(b) << endl;
+                  (*cerr) << "type error: " << to_string(a)
+                          << " != " << to_string(b) << endl;
                 }
                 return false;
               } else {
@@ -790,7 +794,7 @@ struct TypeInfer {
             context.unset_type_env(e->x);
           } else {
             cerr << "type error: `" << to_string(ty)
-                 << "` is not a function type" << endl;
+                 << "` is not of a function type" << endl;
             string data = to_string(e, 0, "  ");
             if (data.length() > 78) {
               data = data.substr(0, 75) + "...";
