@@ -77,7 +77,7 @@ struct TypeInfer {
     for (auto dai : unit->data) {
       auto da = dai.second;
       for (auto &c : da->constructors) {
-        cerr << c->name << " : " << to_string(c->sig) << endl;
+        //        cerr << c->name << " : " << to_string(c->sig) << endl;
         context.set__env(c->name, c->sig);
       }
     }
@@ -858,9 +858,11 @@ struct TypeInfer {
         } else {
           context.set__env(e->x, gen(ty1));
         }
-        cerr << e->x << " : " << (e->e1->sig != nullptr ? to_string(e->e1->sig)
-                                                        : to_string(gen(ty1)))
-             << endl;
+        //        cerr << e->x << " : " << (e->e1->sig != nullptr ?
+        //        to_string(e->e1->sig)
+        //                                                        :
+        //                                                        to_string(gen(ty1)))
+        //             << endl;
         ty2 = infer(e->e2, sig);
         context.unset__env(e->x);
         ty = ty2;
