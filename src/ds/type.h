@@ -90,15 +90,15 @@ string to_string(shared_ptr<Kind> kind) {
 
 string to_string(shared_ptr<Poly>);
 
-string to_string(shared_ptr<Mono> tau) {
+string to_string(shared_ptr<Mono> tau, bool fp = false, bool dp = false) {
   tau = find(tau);
   if (is_c(tau)) {
     if (is_p(tau)) {
       return "(" + to_string(tau->sigma) + ")";
     } else {
       if (is_fun(tau)) {
-        return "(" + to_string(tau->tau[0]) + ")->(" + to_string(tau->tau[1]) +
-               ")";
+        return (fp ? "(" : "") + to_string(tau->tau[0], true) + "->" +
+               to_string(tau->tau[1]) + (fp ? ")" : "");
       } else {
         string ret;
         if (is_cd(tau)) {
@@ -107,9 +107,10 @@ string to_string(shared_ptr<Mono> tau) {
           ret = to_string(tau->D.d);
         }
         for (auto t : tau->tau) {
-          ret += " (" + to_string(t) + ")";
+          ret += " " + to_string(t, true, true);
         }
-        return ret;
+        return (dp && tau->tau.size() ? "(" : "") + ret +
+               (dp && tau->tau.size() ? ")" : "");
       }
     }
   } else {
