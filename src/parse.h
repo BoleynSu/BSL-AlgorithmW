@@ -157,7 +157,7 @@ struct Parser {
   shared_ptr<Constructor> parse_constructor() {
     auto c = make_shared<Constructor>();
     expect(TokenType::IDENTIFIER);
-    if (unit->data.count(t.data)) {
+    if (unit->cons.count(t.data)) {
       string data = t.data;
       if (data.length() > 78) {
         data = data.substr(0, 75) + "...";
