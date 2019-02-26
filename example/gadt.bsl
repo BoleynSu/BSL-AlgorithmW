@@ -77,6 +77,10 @@ rec eval:forall a.Expr a->a = \x -> case x of:forall a.Expr a->a {
     False -> eval e2;
   }
 } in
+let eval2 = \x -> case x of {
+  True->x;
+  False->x;
+} in
 
 let one:Int = ffi ` 1 ` in
 let two:Int = ffi ` 2 ` in
