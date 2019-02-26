@@ -37,6 +37,7 @@ struct TypeInfer {
         return it->second.back();
       } else {
         assert(false);
+        return nullptr;
       }
     }
     void set__env(const string &key, shared_ptr<Poly> value) {
@@ -787,7 +788,6 @@ struct TypeInfer {
         }
         ty = new_forall_var(new_const_kind());
         if (is_fun(find(ty1)) && is_p(find(find(ty1)->tau[0]))) {
-          set<shared_ptr<Mono>> st;
           if (!unify(find(ty1)->tau[1], ty, &cerr)) {
             string data = to_string(e, 0, "  ");
             if (data.length() > 78) {
@@ -858,10 +858,9 @@ struct TypeInfer {
         } else {
           context.set__env(e->x, gen(ty1));
         }
-        //        cerr << e->x << " : " << (e->e1->sig != nullptr ?
-        //        to_string(e->e1->sig)
-        //                                                        :
-        //                                                        to_string(gen(ty1)))
+        //        cerr << e->x << " : "
+        //             << (e->e1->sig != nullptr ? to_string(e->e1->sig)
+        //                                       : to_string(gen(ty1)))
         //             << endl;
         ty2 = infer(e->e2, sig);
         context.unset__env(e->x);
